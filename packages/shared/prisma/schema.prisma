@@ -1,0 +1,178 @@
+// PowerWatch Cameroun — Prisma Schema
+// DB: PostgreSQL + PostGIS (ou simple lat/lng si PostGIS non dispo)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// GÉOGRAPHIE
+// ─────────────────────────────────────────────
+
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique          // "Douala", "Yaoundé", "Bafoussam"…
+  slug      String   @unique          // "douala", "yaounde"
+  lat       Float
+  lng       Float
+  zones     Zone[]
+  createdAt DateTime @default(now())
+}
+
+model Zone {
+  id          String   @id @default(cuid())
+  name        String                   // "Bonamoussadi", "Akwa", "Biyem-Assi"…
+  slug        String
+  cityId      String
+  city        City     @relation(fields: [cityId], references: [id])
+  // Polygone GeoJSON simplifié stocké en JSON (évite PostGIS obligatoire)
+  polygon     Json?                    // GeoJSON Feature polygon
+  centroidLat Float
+  centroidLng Float
+  reports     Report[]
+  snapshots   ZoneSnapshot[]
+  createdAt   DateTime @default(now())
+
+  @@unique([cityId, slug])
+}
+
+// ─────────────────────────────────────────────
+// UTILISATEURS
+// ─────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  deviceId      String   @unique        // fingerprint anonyme côté client
+  phone         String?  @unique        // optionnel — pour comptes vérifiés
+  phoneVerified Boolean  @default(false)
+  trustScore    Float    @default(1.0)  // 0.0 → 2.0, pondère les signalements
+  reportCount   Int      @default(0)
+  spamFlags     Int      @default(0)
+  bannedUntil   DateTime?
+  reports       Report[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// SIGNALEMENTS
+// ─────────────────────────────────────────────
+
+enum ReportType {
+  OUTAGE        // Coupure totale
+  MICRO_OUTAGE  // Faible tension / ampoule rouge
+  RESTORED      // Courant revenu
+}
+
+enum ReportStatus {
+  ACTIVE
+  EXPIRED       // > 6h sans confirmation
+  SUPERSEDED    // Annulé par un RESTORED
+  FLAGGED       // Signalé comme spam
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  zoneId     String
+  zone       Zone         @relation(fields: [zoneId], references: [id])
+  type       ReportType
+  status     ReportStatus @default(ACTIVE)
+  // Coordonnées réelles (pour densité fine, anonymisées à ~200m)
+  lat        Float?
+  lng        Float?
+  // Pondération effective au moment du signalement
+  weight     Float        @default(1.0)
+  createdAt  DateTime     @default(now())
+  expiresAt  DateTime     // createdAt + TTL selon type
+  confirmedBy String[]    // IDs users qui ont confirmé
+
+  @@index([zoneId, status, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────
+// SNAPSHOT ZONE (calculé toutes les 2 min par un job)
+// ─────────────────────────────────────────────
+
+enum ZoneStatus {
+  STABLE    // Vert  🟢
+  UNSTABLE  // Orange 🟠
+  OUTAGE    // Rouge  🔴
+  UNKNOWN   // Gris  ⬜ (pas de signalement récent)
+}
+
+model ZoneSnapshot {
+  id              String     @id @default(cuid())
+  zoneId          String
+  zone            Zone       @relation(fields: [zoneId], references: [id])
+  status          ZoneStatus
+  outageScore     Float      // 0–100, agrégation pondérée
+  activeReports   Int        // nb signalements OUTAGE actifs
+  restoredReports Int        // nb signalements RESTORED actifs
+  // Timestamp de début de la coupure actuelle (null si STABLE)
+  outageSince     DateTime?
+  computedAt      DateTime   @default(now())
+
+  @@index([zoneId, computedAt])
+}
+
+// ─────────────────────────────────────────────
+// LIEUX DE CHARGE (crowdsourcé)
+// ─────────────────────────────────────────────
+
+model ChargingSpot {
+  id          String   @id @default(cuid())
+  name        String                // "Cyber Café Akwa", "Total Bonanjo"
+  type        String                // "cafe", "restaurant", "station", "mosque"
+  lat         Float
+  lng         Float
+  zoneId      String?
+  address     String?
+  photoUrl    String?                // lien photo (optionnel)
+  verified    Boolean  @default(false)
+  upvotes     Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS PUSH (Web Push / VAPID)
+// ─────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  cityId    String?                 // null = toutes les villes
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// ADMIN
+// ─────────────────────────────────────────────
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("moderator") // "superadmin" | "moderator"
+  createdAt    DateTime @default(now())
+}
+
+model OfficialAlert {
+  id        String   @id @default(cuid())
+  zoneId    String?                 // null = alerte nationale
+  title     String
+  message   String
+  source    String   @default("ENEO") // "ENEO" | "AES" | "admin"
+  startsAt  DateTime
+  endsAt    DateTime?
+  createdAt DateTime @default(now())
+}

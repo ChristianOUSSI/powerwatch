@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mode sombre par défaut */
+:root {
+  color-scheme: dark;
+}
+
+/* Masque le skip-link Next.js */
+[data-nextjs-skip-nav],
+#__next-skip-link,
+a[href="#main-content"],
+a.skip-link,
+body > a:first-child[href="#main-content"] {
+  display: none !important;
+  pointer-events: none;
+}
+
+/* Safe area Redmi / iPhones avec encoche */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-safe {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Leaflet dark */
+.leaflet-container {
+  background: #111113 !important;
+  font-family: inherit !important;
+}
+.leaflet-popup-content-wrapper {
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+.leaflet-popup-tip {
+  background: #18181b !important;
+}
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  opacity: 0.4;
+}
+.leaflet-bar a {
+  background: #27272a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+.leaflet-bar a:hover {
+  background: #3f3f46 !important;
+}
+
+/* Zone polygones */
+.zone-stable   { fill: #22c55e; fill-opacity: 0.25; stroke: #16a34a; stroke-width: 1.5; cursor: pointer; transition: fill-opacity 0.2s; }
+.zone-stable:hover   { fill-opacity: 0.45; }
+.zone-unstable { fill: #f97316; fill-opacity: 0.3;  stroke: #ea580c; stroke-width: 1.5; cursor: pointer; }
+.zone-unstable:hover { fill-opacity: 0.5; }
+.zone-outage   { fill: #ef4444; fill-opacity: 0.4;  stroke: #dc2626; stroke-width: 2;   cursor: pointer; }
+.zone-outage:hover   { fill-opacity: 0.6; }
+.zone-unknown  { fill: #71717a; fill-opacity: 0.15; stroke: #52525b; stroke-width: 1;   cursor: pointer; }
+.zone-unknown:hover  { fill-opacity: 0.3; }
+
+/* Animations */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  100% { transform: scale(1.8);  opacity: 0; }
+}
+.animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.32,0.72,0,1) both; }
+.animate-fade-in  { animation: fade-in 0.2s ease both; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  background: #27272a;
+  color: #f4f4f5;
+  font-size: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  animation: fade-in 0.2s ease both;
+  white-space: nowrap;
+}
+
+/* Skeleton loader */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 0.5rem;
+}
+
+/* Scrollbar custom */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
