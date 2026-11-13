@@ -2,15 +2,38 @@
   "name": "PowerWatch Cameroun",
   "short_name": "PowerWatch",
   "description": "Suivi en temps réel des coupures d'électricité au Cameroun",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f0f0f",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#09090b",
   "theme_color": "#f97316",
   "orientation": "portrait",
   "lang": "fr",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Carte des coupures",
+      "short_name": "Carte",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Statistiques",
+      "short_name": "Stats",
+      "url": "/stats",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lieux de charge",
+      "short_name": "Charger",
+      "url": "/spots",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
   ],
   "categories": ["utilities", "lifestyle"]
 }

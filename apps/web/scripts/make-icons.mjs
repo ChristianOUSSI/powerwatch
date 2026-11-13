@@ -1,4 +1,5 @@
-// Génère les icônes PWA (icon-192.png, icon-512.png) : fond orange + éclair blanc.
+// Génère les icônes PWA (icon-192.png, icon-512.png).
+// Dégradé orange vertical + éclair blanc, coins arrondis, zone sûre maskable.
 // Usage : node scripts/make-icons.mjs
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -31,13 +32,23 @@ function chunk(type, data) {
   return out;
 }
 
-// ---- Dessin ----
-const ORANGE = [249, 115, 22];   // #f97316
-const WHITE = [255, 255, 255];
-const BOLT = [
-  [0.62, 0.08], [0.34, 0.56], [0.49, 0.56],
-  [0.44, 0.92], [0.72, 0.44], [0.57, 0.44],
+// ---- Couleurs ----
+const TOP = [255, 171, 92];     // #ffab5c  (haut, clair)
+const BOTTOM = [234, 88, 12];   // #ea580c  (bas, profond)
+const BOLT = [255, 255, 255];
+
+// Éclair centré, échelle ~0.72 pour rester dans la zone sûre maskable (80 %)
+const RAW_BOLT = [
+  [0.60, 0.04], [0.36, 0.54], [0.50, 0.54],
+  [0.45, 0.96], [0.72, 0.42], [0.57, 0.42],
 ];
+const SCALE = 0.72;
+const BOLT_POLY = RAW_BOLT.map(([x, y]) => [
+  0.5 + (x - 0.5) * SCALE,
+  0.5 + (y - 0.5) * SCALE,
+]);
+
+function lerp(a, b, t) { return a + (b - a) * t; }
 
 function inPolygon(x, y, poly) {
   let inside = false;
@@ -57,31 +68,51 @@ function inRoundedRect(u, v, radius) {
   return qx <= 0 || qy <= 0;
 }
 
+function bgColor(v) {
+  const t = Math.min(1, Math.max(0, v));
+  // léger assombrissement vers les coins pour du relief
+  return [
+    Math.round(lerp(TOP[0], BOTTOM[0], t)),
+    Math.round(lerp(TOP[1], BOTTOM[1], t)),
+    Math.round(lerp(TOP[2], BOTTOM[2], t)),
+  ];
+}
+
 function render(size) {
   const radius = 0.22;
   const raw = Buffer.alloc(size * (size * 4 + 1));
   for (let y = 0; y < size; y++) {
     const row = y * (size * 4 + 1);
     raw[row] = 0; // filtre None
+    const v = y / (size - 1);
     for (let x = 0; x < size; x++) {
       const u = (x + 0.5) / size;
-      const v = (y + 0.5) / size;
+      const vv = (y + 0.5) / size;
       const o = row + 1 + x * 4;
-      if (!inRoundedRect(u, v, radius)) {
-        raw[o + 3] = 0; // transparent
+      if (!inRoundedRect(u, vv, radius)) {
+        raw[o + 3] = 0;
         continue;
       }
-      const bolt = inPolygon(u, v, BOLT);
-      const c = bolt ? WHITE : ORANGE;
-      raw[o] = c[0]; raw[o + 1] = c[1]; raw[o + 2] = c[2]; raw[o + 3] = 255;
+      if (inPolygon(u, vv, BOLT_POLY)) {
+        // léger dégradé sur l'éclair : plus lumineux en haut
+        const c = BOLT;
+        const shade = 1 - vv * 0.06;
+        raw[o]     = Math.min(255, Math.round(c[0] * shade));
+        raw[o + 1] = Math.min(255, Math.round(c[1] * shade));
+        raw[o + 2] = Math.min(255, Math.round(c[2] * shade));
+        raw[o + 3] = 255;
+      } else {
+        const c = bgColor(v);
+        raw[o] = c[0]; raw[o + 1] = c[1]; raw[o + 2] = c[2]; raw[o + 3] = 255;
+      }
     }
   }
 
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8;  // bit depth
-  ihdr[9] = 6;  // RGBA
+  ihdr[8] = 8;
+  ihdr[9] = 6;
 
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
