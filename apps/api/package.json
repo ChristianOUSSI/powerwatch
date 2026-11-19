@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "npm run db:generate && tsc",
     "start": "node dist/apps/api/src/index.js",
     "db:generate": "prisma generate --schema=../../packages/shared/prisma/schema.prisma",
     "db:push": "prisma db push --schema=../../packages/shared/prisma/schema.prisma",
