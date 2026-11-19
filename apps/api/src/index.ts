@@ -14,6 +14,7 @@ import { spotsRouter } from "./routes/spots.js";
 import { alertsRouter } from "./routes/alerts.js";
 import { citiesRouter } from "./routes/cities.js";
 import { pushRouter } from "./routes/push.js";
+import { freeReportsRouter } from "./routes/freeReports.js";
 import { startSnapshotJob } from "./jobs/snapshot.js";
 import { rateLimiter } from "./middlewares/rateLimiter.js";
 
@@ -41,6 +42,7 @@ app.use("/api/spots", spotsRouter);
 app.use("/api/cities", citiesRouter);
 app.use("/api/push", pushRouter);
 app.use("/api/alerts", alertsRouter);
+app.use("/api/free-reports", freeReportsRouter);
 
 // Routes admin (JWT middleware intégré dans le router)
 app.use("/api/admin", adminRouter);

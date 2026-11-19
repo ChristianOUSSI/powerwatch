@@ -26,7 +26,7 @@ export interface ZoneSnapshotPublic {
 
 export interface ReportPayload {
   type: ReportType;
-  zoneId: string;
+  zoneId?: string; // optionnel pour signalement libre
   lat?: number;
   lng?: number;
   deviceId: string;

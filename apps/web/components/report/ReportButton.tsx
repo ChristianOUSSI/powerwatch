@@ -86,7 +86,6 @@ export function ReportButton() {
   const [toast, setToast] = useState<{ text: string; kind: "ok" | "err" | "info" } | null>(null);
   const [success, setSuccess] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [autoZone, setAutoZone] = useState(false);
   const [pending, setPending] = useState(0);
   const swipe = useSwipeDismiss(() => setOpen(false));
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -120,46 +119,45 @@ export function ReportButton() {
     );
   }
 
-  // À l'ouverture : géolocalise et sélectionne le quartier le plus proche si rien n'est choisi
+  // À l'ouverture : géolocalise pour le signalement
   function handleOpen() {
     setOpen(true);
     ensureLocation();
-    if (!selectedZoneId && posRef.current) {
-      pickNearestZone(posRef.current);
-    }
   }
 
   // Se déclenche aussi quand la position arrive après l'ouverture du drawer
   useEffect(() => {
-    if (!open || selectedZoneId || !posRef.current) return;
-    pickNearestZone(posRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locating]);
-
-  function pickNearestZone(pos: { lat: number; lng: number }) {
-    let best: { id: string; d: number } | null = null;
-    for (const z of zones) {
-      const d = distanceKm(pos.lat, pos.lng, z.centroidLat, z.centroidLng);
-      if (!best || d < best.d) best = { id: z.id, d };
-    }
-    // Auto-sélection seulement si le quartier est à moins de ~20 km
-    if (best && best.d < 20) {
-      selectZone(best.id);
-      setAutoZone(true);
-    }
-  }
+    if (!open || locating) return;
+    // Rien à faire, la position sera utilisée au moment du signalement
+  }, [locating, open]);
 
   async function handleReport(type: ReportType) {
-    if (!selectedZoneId) {
-      showToast("Appuie d'abord sur un quartier sur la carte", "info");
-      setOpen(false);
-      return;
+    // Pour le signalement libre, on utilise la position GPS si disponible
+    // sinon on demande à l'utilisateur de partager sa position
+    if (!posRef.current && typeof navigator !== "undefined" && navigator.geolocation) {
+      setLocating(true);
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000,
+          });
+        });
+        posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } catch {
+        showToast("Position GPS requise pour signaler", "err");
+        setLocating(false);
+        return;
+      }
+      setLocating(false);
     }
 
     setLoading(type);
     const payload = {
       type,
-      zoneId: selectedZoneId,
+      // zoneId optionnel : on l'envoie si une zone est sélectionnée, sinon on utilise les coords libres
+      ...(selectedZoneId ? { zoneId: selectedZoneId } : {}),
       deviceId: getDeviceId(),
       ...(posRef.current ?? {}),
     };
@@ -178,7 +176,6 @@ export function ReportButton() {
         });
         if (res.ok) {
           setSuccess(true);
-          setAutoZone(false);
           navigator.vibrate?.(60);
           showToast("Signalement envoyé, merci !", "ok");
           setTimeout(() => setSuccess(false), 2000);
@@ -254,39 +251,12 @@ export function ReportButton() {
 
             <div className="px-5 pb-2 space-y-1">
               <p className="text-center text-sm font-semibold text-zinc-200">
-                Que se passe-t-il dans ton quartier ?
+                Que se passe-t-il près de toi ?
               </p>
-              {selectedZone ? (
-                <p className="text-center text-xs text-orange-400">
-                  {selectedZone.name}
-                  {autoZone && posRef.current ? " (détecté automatiquement)" : ""}
-                </p>
-              ) : (
-                <p className="text-center text-xs text-zinc-600">
-                  {locating ? "Localisation en cours…" : "Aucun quartier sélectionné"}
-                </p>
-              )}
+              <p className="text-center text-xs text-zinc-500">
+                {locating ? "Localisation en cours…" : "Ta position sera utilisée pour le signalement"}
+              </p>
             </div>
-
-            {/* Sélecteur de quartier : fonctionne sans GPS ni tap sur la carte */}
-            {!selectedZone && zones.length > 0 && (
-              <div className="px-4 pb-2">
-                <p className="text-center text-[10px] text-zinc-600 mb-1.5">
-                  Ou choisis ton quartier directement :
-                </p>
-                <div className="max-h-24 overflow-y-auto flex flex-wrap gap-1.5 justify-center pb-1">
-                  {zones.map((z) => (
-                    <button
-                      key={z.id}
-                      onClick={() => { selectZone(z.id); setAutoZone(false); }}
-                      className="text-[11px] px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 active:bg-zinc-700 transition"
-                    >
-                      {z.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="px-4 py-3 space-y-2">
               {OPTIONS.map((opt) => (
@@ -314,21 +284,6 @@ export function ReportButton() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Pastille du quartier sélectionné (tap pour désélectionner) */}
-      {selectedZone && !open && (
-        <button
-          onClick={() => selectZone(null)}
-          className="fixed z-40 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/95 border border-orange-800/60 text-orange-300 text-xs font-medium rounded-full backdrop-blur active:scale-95 transition"
-          style={{ bottom: "calc(8.5rem + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)" }}
-          aria-label={`Quartier ${selectedZone.name}, toucher pour changer`}
-        >
-          {selectedZone.name}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
       )}
 
       {/* FAB */}

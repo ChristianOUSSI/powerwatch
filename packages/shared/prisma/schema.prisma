@@ -80,13 +80,15 @@ model Report {
   id         String       @id @default(cuid())
   userId     String
   user       User         @relation(fields: [userId], references: [id])
-  zoneId     String
-  zone       Zone         @relation(fields: [zoneId], references: [id])
+  zoneId     String?                  // optionnel pour signalement libre
+  zone       Zone?        @relation(fields: [zoneId], references: [id])
   type       ReportType
   status     ReportStatus @default(ACTIVE)
   // Coordonnées réelles (pour densité fine, anonymisées à ~200m)
   lat        Float?
   lng        Float?
+  // Cluster ID pour regrouper les signalements proches (calculé dynamiquement)
+  clusterId  String?
   // Pondération effective au moment du signalement
   weight     Float        @default(1.0)
   createdAt  DateTime     @default(now())
@@ -95,6 +97,8 @@ model Report {
 
   @@index([zoneId, status, createdAt])
   @@index([userId, createdAt])
+  @@index([clusterId, status, createdAt])
+  @@index([lat, lng, status, createdAt])
 }
 
 // ─────────────────────────────────────────────

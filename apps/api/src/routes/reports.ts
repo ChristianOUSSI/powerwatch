@@ -10,7 +10,7 @@ export const reportsRouter = Router();
 
 const ReportSchema = z.object({
   type: z.enum(["OUTAGE", "MICRO_OUTAGE", "RESTORED"]),
-  zoneId: z.string().cuid(),
+  zoneId: z.string().cuid().optional(), // optionnel pour signalement libre
   deviceId: z.string().min(10).max(128),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
@@ -39,14 +39,13 @@ reportsRouter.post("/", async (req, res) => {
       return res.status(403).json({ error: "Compte suspendu temporairement." });
     }
 
-    // Anti-flood : 1 signalement par zone par utilisateur.
-    // Fenêtre plus courte pour RESTORED : le courant peut revenir vite
-    // après une coupure, il ne faut pas bloquer ce signalement 15 min.
+    // Anti-flood : 1 signalement par zone ou par cluster par utilisateur.
+    // Pour les signalements libres, on utilise une fenêtre de 15 min par type.
     const windowMinutes = type === "RESTORED" ? 2 : 15;
     const recent = await prisma.report.findFirst({
       where: {
         userId: user.id,
-        zoneId,
+        zoneId: zoneId ?? null,
         createdAt: { gte: new Date(Date.now() - windowMinutes * 60 * 1000) },
         status: "ACTIVE",
       },
@@ -59,17 +58,28 @@ reportsRouter.post("/", async (req, res) => {
 
     const expiresAt = new Date(Date.now() + TTL[type] * 60 * 1000);
 
-    // Un RESTORED annule les signalements de coupure encore actifs dans la zone.
+    // Calcul du clusterId pour regrouper les signalements proches (~1km)
+    let clusterId: string | undefined;
+    if (lat && lng && !zoneId) {
+      clusterId = await findOrCreateCluster(lat, lng);
+    }
+
+    // Un RESTORED annule les signalements de coupure encore actifs dans la zone ou le cluster.
     // On épargne les signalements de moins de 2 min : un "courant rétabli"
     // ne doit pas annuler une coupure fraîchement signalée par un tiers.
     if (type === "RESTORED") {
+      const whereClause: any = {
+        status: "ACTIVE",
+        type: { in: ["OUTAGE", "MICRO_OUTAGE"] },
+        createdAt: { lt: new Date(Date.now() - 2 * 60 * 1000) },
+      };
+      if (zoneId) {
+        whereClause.zoneId = zoneId;
+      } else if (clusterId) {
+        whereClause.clusterId = clusterId;
+      }
       await prisma.report.updateMany({
-        where: {
-          zoneId,
-          status: "ACTIVE",
-          type: { in: ["OUTAGE", "MICRO_OUTAGE"] },
-          createdAt: { lt: new Date(Date.now() - 2 * 60 * 1000) },
-        },
+        where: whereClause,
         data: { status: "SUPERSEDED" },
       });
     }
@@ -77,7 +87,8 @@ reportsRouter.post("/", async (req, res) => {
     const report = await prisma.report.create({
       data: {
         userId: user.id,
-        zoneId,
+        zoneId: zoneId ?? null,
+        clusterId,
         type,
         weight: user.trustScore,
         // Arrondir coords à ~200m pour anonymat
@@ -100,14 +111,19 @@ reportsRouter.post("/", async (req, res) => {
     // Confirmation croisée : un signalement identique récent d'un autre utilisateur
     // renforce la fiabilité de celui qui l'avait posté en premier
     if (type !== "RESTORED") {
+      const whereClause: any = {
+        type,
+        status: "ACTIVE",
+        userId: { not: user.id },
+        createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+      };
+      if (zoneId) {
+        whereClause.zoneId = zoneId;
+      } else if (clusterId) {
+        whereClause.clusterId = clusterId;
+      }
       const similar = await prisma.report.findMany({
-        where: {
-          zoneId,
-          type,
-          status: "ACTIVE",
-          userId: { not: user.id },
-          createdAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-        },
+        where: whereClause,
         select: { id: true, confirmedBy: true, userId: true },
         take: 10,
       });
@@ -132,9 +148,11 @@ reportsRouter.post("/", async (req, res) => {
       );
     }
 
-    // Déclenche recalcul immédiat du snapshot de zone
-    const snapshot = await recalcZone(zoneId);
-    emitZoneUpdate(zoneId, snapshot);
+    // Recalcul du snapshot de zone si zoneId fourni
+    if (zoneId) {
+      const snapshot = await recalcZone(zoneId);
+      emitZoneUpdate(zoneId, snapshot);
+    }
 
     return res.status(201).json({ id: report.id });
   } catch (err) {
@@ -142,6 +160,15 @@ reportsRouter.post("/", async (req, res) => {
     return res.status(500).json({ error: "Erreur interne." });
   }
 });
+
+// ── Clustering spatial simple (~1km) ────────────────────────────────────────
+async function findOrCreateCluster(lat: number, lng: number): Promise<string> {
+  // Arrondir à la grille de ~1km (0.01° ≈ 1km)
+  const gridLat = Math.round(lat * 100) / 100;
+  const gridLng = Math.round(lng * 100) / 100;
+  const clusterId = `${gridLat}_${gridLng}`;
+  return clusterId;
+}
 
 // ── Recalcul snapshot inline (aussi appelé par le job) ──────────────
 export async function recalcZone(zoneId: string) {

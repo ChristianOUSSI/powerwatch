@@ -10,6 +10,16 @@ import { API_URL } from "@/lib/api";
 import { ZonePopup } from "./ZonePopup";
 import type { CityPublic, ZonePublic } from "@powerwatch/shared";
 
+interface FreeReport {
+  id: string;
+  type: string;
+  lat: number;
+  lng: number;
+  clusterId: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 const STATUS_CLASS: Record<string, string> = {
   STABLE:   "zone-stable",
   UNSTABLE: "zone-unstable",
@@ -85,6 +95,7 @@ export default function PowerMap() {
   const [loadError, setLoadError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
+  const [freeReports, setFreeReports] = useState<FreeReport[]>([]);
   const [mapLayer, setMapLayer] = useState<MapLayerId>(() => {
     if (typeof window === "undefined") return "dark";
     const saved = window.localStorage.getItem("pw_map_layer");
@@ -136,13 +147,31 @@ export default function PowerMap() {
       });
   }, [setZones]);
 
-  useEffect(() => { loadZones(citySlug); }, [citySlug, loadZones]);
+  // Charge les signalements libres pour la ville sélectionnée
+  const loadFreeReports = useCallback((slug: string) => {
+    fetch(`${API_URL}/api/free-reports?city=${slug}`)
+      .then((r) => r.json())
+      .then((data: FreeReport[]) => {
+        if (Array.isArray(data)) {
+          setFreeReports(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadZones(citySlug);
+    loadFreeReports(citySlug);
+  }, [citySlug, loadZones, loadFreeReports]);
 
   // Filet de sécurité : le socket peut tomber sur mobile, on recharge en silence
   useEffect(() => {
-    const t = setInterval(() => loadZones(citySlug, true), 90_000);
+    const t = setInterval(() => {
+      loadZones(citySlug, true);
+      loadFreeReports(citySlug);
+    }, 90_000);
     return () => clearInterval(t);
-  }, [citySlug, loadZones]);
+  }, [citySlug, loadZones, loadFreeReports]);
 
   // Si la ville par défaut n'existe pas dans la liste chargée, prendre la première
   useEffect(() => {
@@ -300,6 +329,42 @@ export default function PowerMap() {
             pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 0.35, weight: 2 }}
           />
         )}
+
+        {/* Signalements libres (points individuels) */}
+        {freeReports.map((report) => {
+          // Calculer le statut localement pour chaque signalement
+          const status = report.type === "OUTAGE" ? "OUTAGE" : report.type === "MICRO_OUTAGE" ? "UNSTABLE" : "STABLE";
+          const color = STATUS_COLOR[status] ?? "#52525b";
+
+          return (
+            <CircleMarker
+              key={report.id}
+              center={[report.lat, report.lng]}
+              radius={6}
+              pathOptions={{
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.7,
+                weight: 1,
+              }}
+            >
+              <Popup>
+                <div className="p-2 min-w-[150px]">
+                  <p className="text-xs font-semibold mb-1">
+                    {new Date(report.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p className={
+                    report.type === "OUTAGE" ? "text-red-400" :
+                    report.type === "MICRO_OUTAGE" ? "text-orange-400" :
+                    "text-green-400"
+                  }>
+                    {report.type === "OUTAGE" ? "🔴 Coupure" : report.type === "MICRO_OUTAGE" ? "🟠 Instable" : "🟢 Rétabli"}
+                  </p>
+                </div>
+              </Popup>
+            </CircleMarker>
+          );
+        })}
 
         {zones.map((zone) => {
           const status = zone.snapshot?.status ?? "UNKNOWN";
