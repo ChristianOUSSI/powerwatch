@@ -18,7 +18,10 @@ interface ZonesState {
 export const useZonesStore = create<ZonesState>((set) => ({
   zones: [],
   selectedZoneId: null,
-  isOffline: typeof navigator !== "undefined" ? !navigator.onLine : false,
+  // Toujours false au premier rendu (SSR + client identiques) :
+  // ServiceWorkerRegistrar pose la vraie valeur via setOffline() au montage.
+  // Sinon mismatch d'hydratation React quand onLine=false.
+  isOffline: false,
   lastSyncAt: null,
   reportRequested: false,
   setZones: (zones) => set({ zones, lastSyncAt: new Date().toISOString() }),
