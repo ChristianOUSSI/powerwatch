@@ -2,8 +2,8 @@
  * Seed PowerWatch Cameroun
  * Lance : npx tsx prisma/seed.ts
  *
- * Données réelles : quartiers de Douala et Yaoundé
- * Coordonnées centroides approximatifs (WGS84)
+ * Crée les villes, les lieux de charge et l'admin par défaut.
+ * Pas de zones prédéfinies : le signalement se fait librement sur la carte.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -30,86 +30,6 @@ const CITIES = [
   { name: "Dschang",    slug: "dschang",     lat: 5.4500,  lng: 10.0667 },
 ];
 
-// ─── Quartiers Douala ───────────────────────────────────────────────────────
-const DOUALA_ZONES = [
-  { name: "Akwa",             slug: "akwa",             lat: 4.0561,  lng: 9.7054 },
-  { name: "Bonanjo",          slug: "bonanjo",          lat: 4.0451,  lng: 9.6989 },
-  { name: "Bonamoussadi",     slug: "bonamoussadi",     lat: 4.0783,  lng: 9.7411 },
-  { name: "Makepe",           slug: "makepe",           lat: 4.0850,  lng: 9.7550 },
-  { name: "Bonabéri",         slug: "bonaberi",         lat: 4.0700,  lng: 9.6700 },
-  { name: "Deido",            slug: "deido",            lat: 4.0650,  lng: 9.7200 },
-  { name: "Ndokotti",         slug: "ndokotti",         lat: 4.0530,  lng: 9.7350 },
-  { name: "New Bell",         slug: "new-bell",         lat: 4.0540,  lng: 9.7300 },
-  { name: "Bépanda",          slug: "bepanda",          lat: 4.0600,  lng: 9.7500 },
-  { name: "Logpom",           slug: "logpom",           lat: 4.1000,  lng: 9.7300 },
-  { name: "Kotto",            slug: "kotto",            lat: 4.0950,  lng: 9.7800 },
-  { name: "PK 14",            slug: "pk14",             lat: 4.1100,  lng: 9.7600 },
-  { name: "Cité des Palmiers",slug: "cite-des-palmiers",lat: 4.0900,  lng: 9.7250 },
-  { name: "Ngodi Bakoko",     slug: "ngodi-bakoko",     lat: 4.0800,  lng: 9.6900 },
-  { name: "Bonapriso",        slug: "bonapriso",        lat: 4.0500,  lng: 9.7150 },
-  { name: "Bali",             slug: "bali",             lat: 4.0480,  lng: 9.7100 },
-  { name: "Ndog Bong",        slug: "ndog-bong",        lat: 4.0430,  lng: 9.7500 },
-  { name: "Mboppi",           slug: "mboppi",           lat: 4.0700,  lng: 9.7300 },
-  { name: "Village",          slug: "village",          lat: 4.0620,  lng: 9.7050 },
-  { name: "Cité Sic",         slug: "cite-sic",         lat: 4.0580,  lng: 9.7400 },
-];
-
-// ─── Quartiers Yaoundé ──────────────────────────────────────────────────────
-const YAOUNDE_ZONES = [
-  { name: "Biyem-Assi",       slug: "biyem-assi",       lat: 3.8350,  lng: 11.4900 },
-  { name: "Melen",            slug: "melen",            lat: 3.8500,  lng: 11.5100 },
-  { name: "Ngousso",          slug: "ngousso",          lat: 3.8700,  lng: 11.5200 },
-  { name: "Omnisports",       slug: "omnisports",       lat: 3.8600,  lng: 11.5000 },
-  { name: "Essos",            slug: "essos",            lat: 3.8800,  lng: 11.5300 },
-  { name: "Messa",            slug: "messa",            lat: 3.8900,  lng: 11.5000 },
-  { name: "Ekounou",          slug: "ekounou",          lat: 3.8200,  lng: 11.5400 },
-  { name: "Nkol Eton",        slug: "nkol-eton",        lat: 3.8150,  lng: 11.5100 },
-  { name: "Obili",            slug: "obili",            lat: 3.8650,  lng: 11.5050 },
-  { name: "Nlongkak",         slug: "nlongkak",         lat: 3.8750,  lng: 11.5150 },
-  { name: "Bastos",           slug: "bastos",           lat: 3.8700,  lng: 11.4950 },
-  { name: "Centre Ville",     slug: "centre-ville",     lat: 3.8667,  lng: 11.5167 },
-  { name: "Tsinga",           slug: "tsinga",           lat: 3.8800,  lng: 11.4900 },
-  { name: "Mfandena",         slug: "mfandena",         lat: 3.8400,  lng: 11.5200 },
-  { name: "Emana",            slug: "emana",            lat: 3.9200,  lng: 11.5300 },
-  { name: "Nkolbisson",       slug: "nkolbisson",       lat: 3.8600,  lng: 11.4600 },
-  { name: "Etoa Meki",        slug: "etoa-meki",        lat: 3.8300,  lng: 11.5050 },
-  { name: "Mvog Ada",         slug: "mvog-ada",         lat: 3.8550,  lng: 11.5300 },
-];
-
-// ─── Quartiers Bafoussam ────────────────────────────────────────────────────
-const BAFOUSSAM_ZONES = [
-  { name: "Banengo",    slug: "banengo",    lat: 5.4900,  lng: 10.4150 },
-  { name: "Tamdja",    slug: "tamdja",     lat: 5.4700,  lng: 10.4100 },
-  { name: "Djeleng",   slug: "djeleng",    lat: 5.4850,  lng: 10.4300 },
-  { name: "Tougang",   slug: "tougang",    lat: 5.4650,  lng: 10.4250 },
-  { name: "Nguelemendouka", slug: "nguelemendouka", lat: 5.4750, lng: 10.4050 },
-];
-
-// ─── Zones génériques pour les autres villes (5 par ville) ──────────────────
-function makeGenericZones(lat: number, lng: number, count = 5) {
-  return Array.from({ length: count }, (_, i) => ({
-    name: `Zone ${i + 1}`,
-    slug: `zone-${i + 1}`,
-    lat: lat + (i * 0.01),
-    lng: lng + (i * 0.01),
-  }));
-}
-
-const GENERIC_ZONES_BY_CITY: Record<string, ReturnType<typeof makeGenericZones>> = {
-  garoua: makeGenericZones(9.3017, 13.3944),
-  maroua: makeGenericZones(10.5911, 14.3159),
-  bamenda: makeGenericZones(5.9631, 10.1595),
-  kumba: makeGenericZones(4.6375, 9.4400),
-  nkongsamba: makeGenericZones(4.9583, 9.9406),
-  buea: makeGenericZones(4.1525, 9.2333),
-  limbe: makeGenericZones(4.0167, 9.2167),
-  ebolowa: makeGenericZones(2.9167, 11.1500),
-  kribi: makeGenericZones(2.9400, 9.9100),
-  bertoua: makeGenericZones(4.5769, 13.6828),
-  sangmelima: makeGenericZones(3.0042, 11.6903),
-  dschang: makeGenericZones(5.4500, 10.0667),
-};
-
 // ─── Lieux de charge initiaux ────────────────────────────────────────────────
 const CHARGING_SPOTS = [
   { name: "Total Bonanjo",        type: "station",    lat: 4.0440, lng: 9.6980, address: "Rue Joffre, Bonanjo, Douala" },
@@ -132,89 +52,17 @@ async function main() {
   console.log("🌱 Démarrage du seed PowerWatch Cameroun…");
 
   // ── Villes ────────────────────────────────────────────────────────────────
-  const cityMap: Record<string, string> = {};
   for (const city of CITIES) {
     const c = await prisma.city.upsert({
       where: { slug: city.slug },
       update: {},
       create: city,
     });
-    cityMap[city.slug] = c.id;
     console.log(`  ✅ Ville : ${city.name} (${c.id})`);
   }
 
-  // ── Zones Douala ──────────────────────────────────────────────────────────
-  for (const zone of DOUALA_ZONES) {
-    await prisma.zone.upsert({
-      where: { cityId_slug: { cityId: cityMap["douala"], slug: zone.slug } },
-      update: {},
-      create: {
-        name: zone.name,
-        slug: zone.slug,
-        cityId: cityMap["douala"],
-        centroidLat: zone.lat,
-        centroidLng: zone.lng,
-        // Polygone carré ~500m autour du centroïde (approximatif)
-        polygon: makeSquarePolygon(zone.lat, zone.lng, 0.005),
-      },
-    });
-  }
-  console.log(`  ✅ ${DOUALA_ZONES.length} quartiers Douala`);
-
-  // ── Zones Yaoundé ─────────────────────────────────────────────────────────
-  for (const zone of YAOUNDE_ZONES) {
-    await prisma.zone.upsert({
-      where: { cityId_slug: { cityId: cityMap["yaounde"], slug: zone.slug } },
-      update: {},
-      create: {
-        name: zone.name,
-        slug: zone.slug,
-        cityId: cityMap["yaounde"],
-        centroidLat: zone.lat,
-        centroidLng: zone.lng,
-        polygon: makeSquarePolygon(zone.lat, zone.lng, 0.005),
-      },
-    });
-  }
-  console.log(`  ✅ ${YAOUNDE_ZONES.length} quartiers Yaoundé`);
-
-  // ── Zones Bafoussam ───────────────────────────────────────────────────────
-  for (const zone of BAFOUSSAM_ZONES) {
-    await prisma.zone.upsert({
-      where: { cityId_slug: { cityId: cityMap["bafoussam"], slug: zone.slug } },
-      update: {},
-      create: {
-        name: zone.name,
-        slug: zone.slug,
-        cityId: cityMap["bafoussam"],
-        centroidLat: zone.lat,
-        centroidLng: zone.lng,
-        polygon: makeSquarePolygon(zone.lat, zone.lng, 0.004),
-      },
-    });
-  }
-  console.log(`  ✅ ${BAFOUSSAM_ZONES.length} quartiers Bafoussam`);
-
-  // ── Zones génériques pour les autres villes ───────────────────────────────
-  for (const [slug, zones] of Object.entries(GENERIC_ZONES_BY_CITY)) {
-    const cityId = cityMap[slug];
-    if (!cityId) continue;
-    for (const zone of zones) {
-      await prisma.zone.upsert({
-        where: { cityId_slug: { cityId, slug: zone.slug } },
-        update: {},
-        create: {
-          name: zone.name,
-          slug: zone.slug,
-          cityId,
-          centroidLat: zone.lat,
-          centroidLng: zone.lng,
-          polygon: makeSquarePolygon(zone.lat, zone.lng, 0.004),
-        },
-      });
-    }
-    console.log(`  ✅ ${zones.length} zones ${slug}`);
-  }
+  // Zones supprimées : le signalement est maintenant libre (sans zone prédéfinie)
+  console.log("  ℹ️  Zones non créées (signalement libre activé)");
 
   // ── Lieux de charge ───────────────────────────────────────────────────────
   for (const spot of CHARGING_SPOTS) {
@@ -240,29 +88,9 @@ async function main() {
   console.log("  ✅ Admin : admin@powerwatch.cm / PowerWatch2025!");
 
   console.log("\n🎉 Seed terminé avec succès !");
-  console.log(`   ${DOUALA_ZONES.length + YAOUNDE_ZONES.length + BAFOUSSAM_ZONES.length} zones créées dans 3 villes`);
+  console.log(`   ${CITIES.length} villes créées`);
+  console.log(`   ${CHARGING_SPOTS.length} lieux de charge`);
   console.log("   ⚠️  Changez le mot de passe admin en production !");
-}
-
-/**
- * Génère un polygone carré GeoJSON autour d'un centroïde.
- * delta ≈ 0.005° ≈ 500m
- */
-function makeSquarePolygon(lat: number, lng: number, delta: number) {
-  return {
-    type: "Feature",
-    properties: {},
-    geometry: {
-      type: "Polygon",
-      coordinates: [[
-        [lng - delta, lat - delta],
-        [lng + delta, lat - delta],
-        [lng + delta, lat + delta],
-        [lng - delta, lat + delta],
-        [lng - delta, lat - delta],
-      ]],
-    },
-  };
 }
 
 main()
