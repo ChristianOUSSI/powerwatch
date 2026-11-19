@@ -10,7 +10,7 @@
 /* ============================================================
    THÈME CLAIR : surcharges scoped html.light
    Les classes Tailwind zinc/orange sont réécrites sous .light.
-   La carte Leaflet reste en dark (tuiles CARTO dark = lisible).
+   La carte Leaflet reste en dark (tuiles Esri dark gray = lisible).
    ============================================================ */
 html.light {
   color-scheme: light;

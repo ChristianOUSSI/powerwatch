@@ -179,7 +179,7 @@ export default function PowerMap() {
       <button
         onClick={locateMe}
         aria-label="Ma position"
-        className={`absolute bottom-20 right-3 z-[400] w-10 h-10 rounded-full flex items-center justify-center border backdrop-blur transition ${
+        className={`absolute bottom-24 right-3 z-[400] w-10 h-10 rounded-full flex items-center justify-center border backdrop-blur transition ${
           locating
             ? "bg-orange-500 border-orange-400 text-white animate-pulse"
             : "bg-zinc-950/80 border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500"
@@ -201,7 +201,7 @@ export default function PowerMap() {
       </button>
 
       {/* Légende */}
-      <div className="absolute bottom-20 left-3 z-[400] bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-xl p-2 space-y-1">
+      <div className="absolute bottom-24 left-3 z-[400] bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-xl p-2 space-y-1">
         {[
           { cls: "bg-green-500", label: "Courant" },
           { cls: "bg-orange-500", label: "Instable" },
@@ -215,16 +215,19 @@ export default function PowerMap() {
         ))}
       </div>
 
+      {/* isolate : piège les z-index internes de Leaflet (jusqu'à 1000)
+          pour que légende, nav et FAB restent au-dessus de la carte */}
       <MapContainer
         center={currentCity.center}
         zoom={currentCity.zoom}
-        className="h-full w-full"
+        className="h-full w-full isolate"
         zoomControl={false}
       >
+        {/* Esri World Dark Gray : gratuit, sans clé API (CARTO exige désormais une clé) */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          maxZoom={19}
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          attribution='Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, EPA, NPS &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          maxZoom={16}
         />
 
         <FlyTo center={currentCity.center} zoom={currentCity.zoom} />

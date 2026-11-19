@@ -1,7 +1,7 @@
 // Service Worker PowerWatch Cameroun
 // Stratégie : Cache-First pour les assets, Network-First pour l'API, Stale-While-Revalidate pour la carte
 
-const CACHE_NAME = "powerwatch-v4";
+const CACHE_NAME = "powerwatch-v5";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -82,7 +82,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Tuiles de carte et autres ressources cross-origin (CARTO, etc.)
+  // Tuiles de carte et autres ressources cross-origin (Esri, etc.)
   // → Cache-First avec stockage : sans ça la carte est vide hors-ligne.
   if (url.origin !== self.location.origin) {
     event.respondWith(
