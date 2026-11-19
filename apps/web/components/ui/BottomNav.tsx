@@ -11,13 +11,6 @@ const MapIcon = () => (
   </svg>
 );
 
-const BarChartIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-    <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
-  </svg>
-);
-
 const PlugIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 22v-5M9 7V2M15 7V2M9 7h6a4 4 0 010 8H9a4 4 0 010-8z"/>
@@ -32,10 +25,9 @@ const InfoIcon = () => (
 );
 
 const LINKS = [
-  { href: "/",       Icon: MapIcon,      label: "Carte"   },
-  { href: "/stats",  Icon: BarChartIcon, label: "Stats"   },
-  { href: "/spots",  Icon: PlugIcon,     label: "Charger" },
-  { href: "/legal",  Icon: InfoIcon,     label: "Aide"    },
+  { href: "/",       Icon: MapIcon,  label: "Carte"   },
+  { href: "/spots",  Icon: PlugIcon, label: "Charger" },
+  { href: "/legal",  Icon: InfoIcon, label: "Aide"    },
 ];
 
 export function BottomNav() {

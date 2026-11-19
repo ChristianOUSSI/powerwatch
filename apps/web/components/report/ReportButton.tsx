@@ -80,7 +80,7 @@ const OPTIONS: ReportOption[] = [
 ];
 
 export function ReportButton() {
-  const { selectedZoneId, zones, isOffline, selectZone, reportRequested, clearReportRequest } = useZonesStore();
+  const { selectedZoneId, zones, isOffline, selectZone, reportRequested, clearReportRequest, userLocation, setUserLocation } = useZonesStore();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState<ReportType | null>(null);
   const [toast, setToast] = useState<{ text: string; kind: "ok" | "err" | "info" } | null>(null);
@@ -110,7 +110,9 @@ export function ReportButton() {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
+        posRef.current = loc;
+        setUserLocation(loc);
         locatingRef.current = false;
         setLocating(false);
       },
@@ -134,7 +136,10 @@ export function ReportButton() {
   async function handleReport(type: ReportType) {
     // Pour le signalement libre, on utilise la position GPS si disponible
     // sinon on demande à l'utilisateur de partager sa position
-    if (!posRef.current && typeof navigator !== "undefined" && navigator.geolocation) {
+    // La position du store peut avoir été ajustée à la main sur la carte :
+    // elle prime sur la position GPS brute.
+    const reportPos = userLocation ?? posRef.current;
+    if (!reportPos && typeof navigator !== "undefined" && navigator.geolocation) {
       setLocating(true);
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -144,7 +149,9 @@ export function ReportButton() {
             maximumAge: 0,
           });
         });
-        posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
+        posRef.current = loc;
+        setUserLocation(loc);
       } catch {
         showToast("Position GPS requise pour signaler", "err");
         setLocating(false);
@@ -159,7 +166,7 @@ export function ReportButton() {
       // zoneId optionnel : on l'envoie si une zone est sélectionnée, sinon on utilise les coords libres
       ...(selectedZoneId ? { zoneId: selectedZoneId } : {}),
       deviceId: getDeviceId(),
-      ...(posRef.current ?? {}),
+      ...((userLocation ?? posRef.current) ?? {}),
     };
 
     try {
@@ -254,7 +261,11 @@ export function ReportButton() {
                 Que se passe-t-il près de toi ?
               </p>
               <p className="text-center text-xs text-zinc-500">
-                {locating ? "Localisation en cours…" : "Ta position sera utilisée pour le signalement"}
+                {locating
+                  ? "Localisation en cours…"
+                  : userLocation
+                    ? `Position : ${userLocation.lat.toFixed(5)}, ${userLocation.lng.toFixed(5)} · déplaçable sur la carte`
+                    : "Ta position sera utilisée pour le signalement"}
               </p>
             </div>
 

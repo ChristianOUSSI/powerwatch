@@ -211,6 +211,9 @@ export default function SpotsPage() {
                       {spot.address && (
                         <p className="text-xs text-zinc-600 mt-1 truncate">{spot.address}</p>
                       )}
+                      <p className="text-[10px] text-zinc-700 font-mono mt-0.5">
+                        {spot.lat.toFixed(5)}, {spot.lng.toFixed(5)}
+                      </p>
                     </div>
                   </div>
 

@@ -3,12 +3,17 @@
 import React from "react";
 import { useZonesStore } from "@/store/zones";
 
+// Numéro WhatsApp de contact direct (format international sans +)
+const WHATSAPP_NUMBER = "237691223916";
+const CONTACT_SITE = "https://codeaxis.vercel.app";
+
 export function WhatsAppButton() {
-  const { zones, selectedZoneId } = useZonesStore();
-  const [userPos, setUserPos] = React.useState<{ lat: number; lng: number } | null>(null);
+  const { zones, selectedZoneId, userLocation, setUserLocation } = useZonesStore();
+  const [locating, setLocating] = React.useState(false);
 
   async function locateMe() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation || locating) return;
+    setLocating(true);
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -17,15 +22,21 @@ export function WhatsAppButton() {
           maximumAge: 0,
         });
       });
-      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setUserLocation({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy ?? null,
+      });
     } catch {
-      setUserPos(null);
+      // position indisponible : on partage sans coordonnées
+    } finally {
+      setLocating(false);
     }
   }
 
   function buildMessage() {
-    const locationPart = userPos
-      ? `\n📍 Ma position : ${userPos.lat.toFixed(5)}, ${userPos.lng.toFixed(5)}\nhttps://maps.google.com/?q=${userPos.lat},${userPos.lng}`
+    const locationPart = userLocation
+      ? `\nMa position : ${userLocation.lat.toFixed(5)}, ${userLocation.lng.toFixed(5)}\nhttps://maps.google.com/?q=${userLocation.lat},${userLocation.lng}\n`
       : "";
 
     if (selectedZoneId) {
@@ -33,25 +44,26 @@ export function WhatsAppButton() {
       const snap = zone?.snapshot;
       if (zone && snap) {
         const status =
-          snap.status === "OUTAGE"   ? "🔴 Coupure générale" :
-          snap.status === "UNSTABLE" ? "🟠 Courant instable" :
-          snap.status === "STABLE"   ? "🟢 Courant présent" :
-          "⚪ Pas de données récentes";
+          snap.status === "OUTAGE"   ? "Coupure générale" :
+          snap.status === "UNSTABLE" ? "Courant instable" :
+          snap.status === "STABLE"   ? "Courant présent" :
+          "Pas de données récentes";
         const since = snap.outageSince
           ? ` depuis ${new Date(snap.outageSince).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
           : "";
         return encodeURIComponent(
-          `⚡ PowerWatch Cameroun\n\n${zone.name} : ${status}${since}\n${snap.activeReports} signalement(s) actif(s)${locationPart}\n\nhttps://powerwatch.cm`
+          `PowerWatch Cameroun\n\n${zone.name} : ${status}${since}\n${snap.activeReports} signalement(s) actif(s)\n${locationPart}\nContact : ${CONTACT_SITE}`
         );
       }
     }
     return encodeURIComponent(
-      `⚡ PowerWatch Cameroun : Suivi des coupures d'électricité en temps réel${locationPart}\n\nhttps://powerwatch.cm`
+      `PowerWatch Cameroun : Suivi des coupures d'électricité en temps réel\n${locationPart}\nContact : ${CONTACT_SITE}`
     );
   }
 
   function share() {
-    const url = `https://wa.me/?text=${buildMessage()}`;
+    // Lien WhatsApp direct vers le numéro de contact, message pré-rempli
+    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${buildMessage()}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -60,8 +72,8 @@ export function WhatsAppButton() {
       type="button"
       onClick={share}
       onContextMenu={(e) => { e.preventDefault(); locateMe(); }}
-      aria-label="Partager sur WhatsApp (appui long pour ajouter ma position)"
-      className="fixed right-4 z-40 flex items-center justify-center w-12 h-12 bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 rounded-full shadow-xl transition"
+      aria-label="Contacter sur WhatsApp (appui long pour ajouter ma position)"
+      className={`fixed right-4 z-40 flex items-center justify-center w-12 h-12 bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 rounded-full shadow-xl transition ${locating ? "animate-pulse" : ""}`}
       style={{ bottom: "calc(9.5rem + env(safe-area-inset-bottom, 0px))" }}
     >
       <svg viewBox="0 0 32 32" className="w-6 h-6 fill-white" xmlns="http://www.w3.org/2000/svg">

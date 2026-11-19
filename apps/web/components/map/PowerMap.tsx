@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useZonesStore } from "@/store/zones";
 import { useSocket } from "@/hooks/useSocket";
 import { API_URL } from "@/lib/api";
 import { ElectricBar } from "@/components/ui/ElectricBar";
@@ -62,6 +63,14 @@ const MAP_LAYERS = [
 
 type MapLayerId = (typeof MAP_LAYERS)[number]["id"];
 
+// Icône du point utilisateur : déplaçable pour corriger un léger décalage GPS
+const userIcon = L.divIcon({
+  className: "",
+  html: '<div style="width:20px;height:20px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 0 10px rgba(249,115,22,0.9)"></div>',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
 // Repli si l'API villes est injoignable
 const FALLBACK_CITIES: CityItem[] = [
   { slug: "douala",    label: "Douala",    center: [4.0511, 9.7679],   zoom: 13 },
@@ -88,15 +97,15 @@ function MapHandle({ onReady }: { onReady: (map: L.Map) => void }) {
 }
 
 export default function PowerMap() {
+  const userLocation = useZonesStore((s) => s.userLocation);
+  const setUserLocation = useZonesStore((s) => s.setUserLocation);
   const [cities, setCities] = useState<CityItem[]>(FALLBACK_CITIES);
   const [citySlug, setCitySlug] = useState("douala");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
-  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [citiesPaused, setCitiesPaused] = useState(false);
-  const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [freeReports, setFreeReports] = useState<FreeReport[]>([]);
   const [mapLayer, setMapLayer] = useState<MapLayerId>(() => {
     if (typeof window === "undefined") return "dark";
@@ -175,10 +184,13 @@ export default function PowerMap() {
     setLocateError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setUserPos(latlng);
-        setUserAccuracy(pos.coords.accuracy ?? null);
-        mapRef.current?.flyTo(latlng, Math.max(mapRef.current.getZoom(), 17), { duration: 0.8 });
+        const loc = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
+        };
+        setUserLocation(loc);
+        mapRef.current?.flyTo([loc.lat, loc.lng], Math.max(mapRef.current.getZoom(), 17), { duration: 0.8 });
         setLocating(false);
       },
       (err) => {
@@ -351,24 +363,33 @@ export default function PowerMap() {
         <FlyTo center={currentCity.center} zoom={currentCity.zoom} />
         <MapHandle onReady={(m) => { mapRef.current = m; }} />
 
-        {userPos && (
-          <CircleMarker
-            center={userPos}
-            radius={9}
-            pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 0.4, weight: 2 }}
+        {userLocation && (
+          <Marker
+            position={[userLocation.lat, userLocation.lng]}
+            icon={userIcon}
+            draggable
+            eventHandlers={{
+              // L'utilisateur peut corriger un léger décalage GPS en déplaçant le point
+              dragend: (e) => {
+                const m = e.target as L.Marker;
+                const ll = m.getLatLng();
+                setUserLocation({ lat: ll.lat, lng: ll.lng, accuracy: null });
+              },
+            }}
           >
             <Popup>
               <div className="p-1.5 text-xs">
-                <p className="font-semibold text-zinc-200">Ta position exacte</p>
+                <p className="font-semibold text-zinc-200">Ta position</p>
                 <p className="text-zinc-500 font-mono">
-                  {userPos[0].toFixed(5)}, {userPos[1].toFixed(5)}
+                  {userLocation.lat.toFixed(5)}, {userLocation.lng.toFixed(5)}
                 </p>
-                {userAccuracy !== null && userAccuracy < 100 && (
-                  <p className="text-zinc-600">Précision ~{Math.round(userAccuracy)} m</p>
+                {userLocation.accuracy != null && userLocation.accuracy < 100 && (
+                  <p className="text-zinc-600">Précision ~{Math.round(userLocation.accuracy)} m</p>
                 )}
+                <p className="text-zinc-600 mt-1">Maintiens et déplace ce point si le GPS est décalé.</p>
               </div>
             </Popup>
-          </CircleMarker>
+          </Marker>
         )}
 
         {/* Signalements libres (points individuels) */}

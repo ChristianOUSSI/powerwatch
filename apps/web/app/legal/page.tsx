@@ -98,7 +98,23 @@ export default function LegalPage() {
           <h2 className="font-bold text-zinc-200">Contact</h2>
           <p className="text-zinc-400">
             Pour toute question ou signalement d'abus :{" "}
-            <span className="text-orange-400">admin@powerwatch.cm</span>
+            <a
+              href="https://codeaxis.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-orange-400 hover:underline"
+            >
+              codeaxis.vercel.app
+            </a>
+            {" "}ou par WhatsApp :{" "}
+            <a
+              href="https://wa.me/237691223916"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 hover:underline"
+            >
+              +237 691 22 39 16
+            </a>
           </p>
         </section>
 
