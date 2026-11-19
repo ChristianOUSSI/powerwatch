@@ -6,6 +6,9 @@ WORKDIR /app
 # NODE_ENV=production est mis APRÈS le build : sinon npm ci saute les
 # devDependencies (typescript, prisma CLI, tsx) et le build échoue.
 
+# OpenSSL requis par le query engine Prisma sur Alpine
+RUN apk add --no-cache openssl
+
 # Manifests d'abord pour profiter du cache Docker
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
