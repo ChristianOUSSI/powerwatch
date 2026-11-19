@@ -25,6 +25,33 @@ const STATUS_COLOR: Record<string, string> = {
   UNKNOWN:  "#52525b",
 };
 
+// Fonds de carte gratuits, sans clé API
+const MAP_LAYERS = [
+  {
+    id: "dark",
+    label: "Sombre",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, EPA, NPS &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 16,
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  },
+  {
+    id: "satellite",
+    label: "Satellite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics, GIS User Community',
+    maxZoom: 19,
+  },
+] as const;
+
+type MapLayerId = (typeof MAP_LAYERS)[number]["id"];
+
 // Repli si l'API villes est injoignable
 const FALLBACK_CITIES: { slug: string; label: string; center: [number, number]; zoom: number }[] = [
   { slug: "douala",    label: "Douala",    center: [4.0511, 9.7679],   zoom: 13 },
@@ -58,7 +85,17 @@ export default function PowerMap() {
   const [loadError, setLoadError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
+  const [mapLayer, setMapLayer] = useState<MapLayerId>(() => {
+    if (typeof window === "undefined") return "dark";
+    const saved = window.localStorage.getItem("pw_map_layer");
+    return MAP_LAYERS.some((l) => l.id === saved) ? (saved as MapLayerId) : "dark";
+  });
   const mapRef = useRef<L.Map | null>(null);
+
+  function chooseLayer(id: MapLayerId) {
+    setMapLayer(id);
+    try { window.localStorage.setItem("pw_map_layer", id); } catch {}
+  }
 
   // Charge les villes depuis l'API (fallback sur la liste locale)
   useEffect(() => {
@@ -152,6 +189,23 @@ export default function PowerMap() {
         ))}
       </div>
 
+      {/* Sélecteur de fond de carte, en haut à droite */}
+      <div className="absolute top-11 right-3 z-[400] flex gap-1 bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-full p-1">
+        {MAP_LAYERS.map((layer) => (
+          <button
+            key={layer.id}
+            onClick={() => chooseLayer(layer.id)}
+            className={`text-[10px] px-2.5 py-1 rounded-full transition font-medium ${
+              mapLayer === layer.id
+                ? "bg-orange-500 text-white"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            {layer.label}
+          </button>
+        ))}
+      </div>
+
       {/* Erreur de chargement : pastille avec retry */}
       {loadError && !loading && (
         <button
@@ -223,12 +277,18 @@ export default function PowerMap() {
         className="h-full w-full isolate"
         zoomControl={false}
       >
-        {/* Esri World Dark Gray : gratuit, sans clé API (CARTO exige désormais une clé) */}
-        <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-          attribution='Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, EPA, NPS &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          maxZoom={16}
-        />
+        {/* Fonds de carte gratuits, sans clé API (CARTO en exige une) */}
+        {(() => {
+          const layer = MAP_LAYERS.find((l) => l.id === mapLayer) ?? MAP_LAYERS[0];
+          return (
+            <TileLayer
+              key={layer.id}
+              url={layer.url}
+              attribution={layer.attribution}
+              maxZoom={layer.maxZoom}
+            />
+          );
+        })()}
 
         <FlyTo center={currentCity.center} zoom={currentCity.zoom} />
         <MapHandle onReady={(m) => { mapRef.current = m; }} />
