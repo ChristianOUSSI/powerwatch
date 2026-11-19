@@ -5,18 +5,15 @@ import { AlertBanner } from "@/components/ui/AlertBanner";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Onboarding } from "@/components/ui/Onboarding";
+import { ElectricBar } from "@/components/ui/ElectricBar";
 
 // Leaflet ne tourne pas côté serveur
 const PowerMap = dynamic(() => import("@/components/map/PowerMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-zinc-950">
-      <div className="text-center space-y-3">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto">
-          <path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
-        </svg>
-        <div className="skeleton w-48 h-3 mx-auto" />
-        <div className="skeleton w-32 h-3 mx-auto opacity-60" />
+    <div className="flex-1 flex items-center justify-center bg-zinc-950 px-10">
+      <div className="w-full max-w-xs space-y-3">
+        <ElectricBar label="Chargement de la carte…" />
       </div>
     </div>
   ),

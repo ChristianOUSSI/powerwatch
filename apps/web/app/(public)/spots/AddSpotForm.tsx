@@ -35,7 +35,7 @@ export function AddSpotForm({ onAdded, onClose }: { onAdded: () => void; onClose
         setGpsLoading(false);
       },
       () => { setError("Impossible d'obtenir ta position"); setGpsLoading(false); },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 

@@ -12,9 +12,9 @@ export function WhatsAppButton() {
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 60000,
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
         });
       });
       setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });

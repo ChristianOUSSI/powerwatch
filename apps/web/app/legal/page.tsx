@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export const metadata = {
   title: "Mentions légales : PowerWatch Cameroun",
@@ -36,9 +37,18 @@ export default function LegalPage() {
             au Cameroun. Projet indépendant, non affilié à ENEO, AES, SOCADEL ou tout autre
             opérateur du réseau électrique.
           </p>
-          <p className="text-zinc-500 text-xs">
-            Conçu et développé par CADC
-          </p>
+          <div className="flex items-center gap-3 pt-1">
+            <Image
+              src="/icons/cadc-img.jpeg"
+              alt="CADC"
+              width={44}
+              height={44}
+              className="rounded-lg object-cover"
+            />
+            <p className="text-zinc-500 text-xs">
+              Conçu et développé par <span className="text-orange-400 font-semibold">CADC</span>
+            </p>
+          </div>
         </section>
 
         {/* Données personnelles */}

@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useZonesStore } from "@/store/zones";
 import { useSocket } from "@/hooks/useSocket";
 import { API_URL } from "@/lib/api";
-import { ZonePopup } from "./ZonePopup";
-import type { CityPublic, ZonePublic } from "@powerwatch/shared";
+import { ElectricBar } from "@/components/ui/ElectricBar";
+import type { CityPublic } from "@powerwatch/shared";
 
 interface FreeReport {
   id: string;
@@ -20,14 +19,15 @@ interface FreeReport {
   expiresAt: string;
 }
 
-const STATUS_CLASS: Record<string, string> = {
-  STABLE:   "zone-stable",
-  UNSTABLE: "zone-unstable",
-  OUTAGE:   "zone-outage",
-  UNKNOWN:  "zone-unknown",
-};
+interface CityItem {
+  id?: string;
+  slug: string;
+  label: string;
+  center: [number, number];
+  zoom: number;
+}
 
-// Couleurs de secours pour les zones sans polygone (seed initial)
+// Couleurs des signalements (mêmes codes que la légende)
 const STATUS_COLOR: Record<string, string> = {
   STABLE:   "#22c55e",
   UNSTABLE: "#f97316",
@@ -63,7 +63,7 @@ const MAP_LAYERS = [
 type MapLayerId = (typeof MAP_LAYERS)[number]["id"];
 
 // Repli si l'API villes est injoignable
-const FALLBACK_CITIES: { slug: string; label: string; center: [number, number]; zoom: number }[] = [
+const FALLBACK_CITIES: CityItem[] = [
   { slug: "douala",    label: "Douala",    center: [4.0511, 9.7679],   zoom: 13 },
   { slug: "yaounde",   label: "Yaoundé",   center: [3.8480, 11.5021],  zoom: 13 },
   { slug: "bafoussam", label: "Bafoussam", center: [5.4777, 10.4192],  zoom: 14 },
@@ -88,12 +88,14 @@ function MapHandle({ onReady }: { onReady: (map: L.Map) => void }) {
 }
 
 export default function PowerMap() {
-  const { zones, setZones, selectZone, selectedZoneId } = useZonesStore();
-  const [cities, setCities] = useState(FALLBACK_CITIES);
+  const [cities, setCities] = useState<CityItem[]>(FALLBACK_CITIES);
   const [citySlug, setCitySlug] = useState("douala");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
+  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
+  const [citiesPaused, setCitiesPaused] = useState(false);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [freeReports, setFreeReports] = useState<FreeReport[]>([]);
   const [mapLayer, setMapLayer] = useState<MapLayerId>(() => {
@@ -116,6 +118,7 @@ export default function PowerMap() {
         if (Array.isArray(data) && data.length > 0) {
           setCities(
             data.map((c) => ({
+              id: c.id,
               slug: c.slug,
               label: c.name,
               center: [c.lat, c.lng] as [number, number],
@@ -129,49 +132,35 @@ export default function PowerMap() {
 
   const currentCity = cities.find((c) => c.slug === citySlug) ?? cities[0] ?? FALLBACK_CITIES[0];
 
-  const loadZones = useCallback((slug: string, silent = false) => {
-    if (!silent) setLoading(true);
-    fetch(`${API_URL}/api/zones?city=${slug}`)
-      .then((r) => r.json())
-      .then((data: ZonePublic[]) => {
-        // L'API peut renvoyer {error: ...} : ne jamais stocker autre chose
-        // qu'un tableau, sinon zones.map plante tout le rendu.
+  // Charge les signalements libres pour la ville sélectionnée
+  const loadFreeReports = useCallback((slug: string) => {
+    fetch(`${API_URL}/api/free-reports?city=${slug}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then((data: FreeReport[]) => {
         if (!Array.isArray(data)) throw new Error("Réponse invalide");
-        setZones(data);
-        setLoading(false);
+        setFreeReports(data);
         setLoadError(false);
+        setLoading(false);
       })
       .catch(() => {
         setLoading(false);
         setLoadError(true);
       });
-  }, [setZones]);
-
-  // Charge les signalements libres pour la ville sélectionnée
-  const loadFreeReports = useCallback((slug: string) => {
-    fetch(`${API_URL}/api/free-reports?city=${slug}`)
-      .then((r) => r.json())
-      .then((data: FreeReport[]) => {
-        if (Array.isArray(data)) {
-          setFreeReports(data);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    loadZones(citySlug);
+    setLoading(true);
     loadFreeReports(citySlug);
-  }, [citySlug, loadZones, loadFreeReports]);
+  }, [citySlug, loadFreeReports]);
 
-  // Filet de sécurité : le socket peut tomber sur mobile, on recharge en silence
+  // Filet de sécurité : recharge silencieuse si le socket tombe
   useEffect(() => {
-    const t = setInterval(() => {
-      loadZones(citySlug, true);
-      loadFreeReports(citySlug);
-    }, 90_000);
+    const t = setInterval(() => loadFreeReports(citySlug), 90_000);
     return () => clearInterval(t);
-  }, [citySlug, loadZones, loadFreeReports]);
+  }, [citySlug, loadFreeReports]);
 
   // Si la ville par défaut n'existe pas dans la liste chargée, prendre la première
   useEffect(() => {
@@ -183,39 +172,75 @@ export default function PowerMap() {
   function locateMe() {
     if (!navigator.geolocation || locating) return;
     setLocating(true);
+    setLocateError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         setUserPos(latlng);
-        mapRef.current?.flyTo(latlng, Math.max(mapRef.current.getZoom(), 15), { duration: 0.8 });
+        setUserAccuracy(pos.coords.accuracy ?? null);
+        mapRef.current?.flyTo(latlng, Math.max(mapRef.current.getZoom(), 17), { duration: 0.8 });
         setLocating(false);
       },
-      () => setLocating(false),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      (err) => {
+        setLocating(false);
+        // Message exact selon le code d'erreur GPS
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocateError("Localisation refusée : autorise la position dans les réglages du navigateur");
+        } else if (err.code === err.TIMEOUT) {
+          setLocateError("Localisation trop lente : réessaie à l'extérieur");
+        } else {
+          setLocateError("Position GPS indisponible pour le moment");
+        }
+      },
+      // Haute précision + pas de cache : pointage exact sur la position réelle
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
-  // Socket temps réel sur la première zone pour récupérer le cityId
-  const cityId = zones[0]?.cityId;
-  useSocket(cityId);
+  // Socket temps réel sur la ville sélectionnée
+  useSocket(currentCity.id);
 
   return (
     <div className="relative h-full w-full">
-      {/* Sélecteur de ville, flottant en haut de la carte */}
-      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[400] flex gap-1 bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-full p-1">
-        {cities.map((city) => (
-          <button
-            key={city.slug}
-            onClick={() => setCitySlug(city.slug)}
-            className={`text-xs px-3 py-1 rounded-full transition font-medium ${
-              citySlug === city.slug
-                ? "bg-orange-500 text-white"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            {city.label}
-          </button>
-        ))}
+      {/* Villes couvertes : défilement automatique, pause au toucher */}
+      <div
+        className="absolute top-2 left-1/2 -translate-x-1/2 z-[400] w-[min(94vw,600px)] overflow-hidden bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-full"
+        onPointerDown={() => setCitiesPaused(true)}
+        onPointerUp={() => setCitiesPaused(false)}
+        onPointerLeave={() => setCitiesPaused(false)}
+      >
+        <div
+          className="flex w-max animate-marquee py-1.5"
+          style={{
+            animationDuration: `${Math.max(20, cities.length * 2)}s`,
+            animationPlayState: citiesPaused ? "paused" : "running",
+          }}
+        >
+          {/* Deux moitiés identiques pour une boucle sans couture */}
+          {[0, 1].map((half) => (
+            <div key={half} className="flex items-center gap-1.5 pr-1.5">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500 px-2 shrink-0">
+                Zones couvertes
+              </span>
+              {cities.map((city) => (
+                <button
+                  key={`${half}-${city.slug}`}
+                  onClick={() => setCitySlug(city.slug)}
+                  className={`text-[11px] px-3 py-1 rounded-full transition font-medium whitespace-nowrap ${
+                    citySlug === city.slug
+                      ? "bg-orange-500 text-white"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {city.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        {/* Fondus sur les bords */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zinc-950/80 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zinc-950/80 to-transparent" />
       </div>
 
       {/* Sélecteur de fond de carte, en haut à droite */}
@@ -238,23 +263,27 @@ export default function PowerMap() {
       {/* Erreur de chargement : pastille avec retry */}
       {loadError && !loading && (
         <button
-          onClick={() => loadZones(citySlug)}
+          onClick={() => { setLoading(true); loadFreeReports(citySlug); }}
           className="absolute top-14 left-1/2 -translate-x-1/2 z-[400] bg-red-950/90 border border-red-800 text-red-200 text-xs px-4 py-2 rounded-full backdrop-blur active:scale-95 transition"
         >
           Connexion impossible, toucher pour réessayer
         </button>
       )}
 
-      {/* Indicateur de chargement */}
+      {/* Erreur de localisation GPS */}
+      {locateError && (
+        <button
+          onClick={() => setLocateError(null)}
+          className="absolute top-14 left-1/2 -translate-x-1/2 z-[400] bg-red-950/90 border border-red-800 text-red-200 text-xs px-4 py-2 rounded-full backdrop-blur active:scale-95 transition"
+        >
+          {locateError}
+        </button>
+      )}
+
+      {/* Chargement des zones : simple barre électrique en haut, sans bloquer la carte */}
       {loading && (
-        <div className="absolute inset-0 z-[300] flex items-center justify-center bg-zinc-950/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-zinc-400 text-sm">
-            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
-            </svg>
-            Chargement des zones…
-          </div>
+        <div className="absolute top-0 inset-x-0 z-[300] px-2 pt-1 pointer-events-none">
+          <ElectricBar />
         </div>
       )}
 
@@ -325,9 +354,21 @@ export default function PowerMap() {
         {userPos && (
           <CircleMarker
             center={userPos}
-            radius={7}
-            pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 0.35, weight: 2 }}
-          />
+            radius={9}
+            pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 0.4, weight: 2 }}
+          >
+            <Popup>
+              <div className="p-1.5 text-xs">
+                <p className="font-semibold text-zinc-200">Ta position exacte</p>
+                <p className="text-zinc-500 font-mono">
+                  {userPos[0].toFixed(5)}, {userPos[1].toFixed(5)}
+                </p>
+                {userAccuracy !== null && userAccuracy < 100 && (
+                  <p className="text-zinc-600">Précision ~{Math.round(userAccuracy)} m</p>
+                )}
+              </div>
+            </Popup>
+          </CircleMarker>
         )}
 
         {/* Signalements libres (points individuels) */}
@@ -366,48 +407,6 @@ export default function PowerMap() {
           );
         })}
 
-        {zones.map((zone) => {
-          const status = zone.snapshot?.status ?? "UNKNOWN";
-          const isSelected = zone.id === selectedZoneId;
-
-          // Zones sans polygone : marqueur au centroïde
-          if (!zone.polygon) {
-            return (
-              <CircleMarker
-                key={`${zone.id}-${status}-${isSelected}`}
-                center={[zone.centroidLat, zone.centroidLng]}
-                radius={isSelected ? 12 : 9}
-                pathOptions={{
-                  color: STATUS_COLOR[status],
-                  fillColor: STATUS_COLOR[status],
-                  fillOpacity: isSelected ? 0.85 : 0.55,
-                  weight: isSelected ? 3 : 2,
-                }}
-                eventHandlers={{ click: () => selectZone(zone.id) }}
-              >
-                <Popup>
-                  <ZonePopup zone={zone} />
-                </Popup>
-              </CircleMarker>
-            );
-          }
-
-          return (
-            <GeoJSON
-              key={`${zone.id}-${status}-${isSelected}`}
-              data={zone.polygon as GeoJSON.GeoJsonObject}
-              style={{
-                className: STATUS_CLASS[status],
-                ...(isSelected ? { weight: 3, fillOpacity: 0.6 } : {}),
-              }}
-              eventHandlers={{ click: () => selectZone(zone.id) }}
-            >
-              <Popup>
-                <ZonePopup zone={zone} />
-              </Popup>
-            </GeoJSON>
-          );
-        })}
       </MapContainer>
     </div>
   );

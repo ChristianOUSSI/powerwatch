@@ -115,7 +115,7 @@ export function ReportButton() {
         setLocating(false);
       },
       () => { locatingRef.current = false; setLocating(false); },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
@@ -139,9 +139,9 @@ export function ReportButton() {
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 10000,
-            maximumAge: 300000,
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
           });
         });
         posRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };

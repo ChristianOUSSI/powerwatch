@@ -218,6 +218,27 @@ body {
 }
 .page-enter { animation: page-in 0.22s ease-out both; }
 
+/* Barre de chargement électrique : segment lumineux qui traverse */
+@keyframes electric-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.animate-electric { animation: electric-slide 1.1s ease-in-out infinite; }
+
+/* Défilement automatique en boucle (liste des villes couvertes) */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee { animation: marquee 20s linear infinite; }
+
+/* Loader de transition : visible ~1.3s puis s'estompe */
+@keyframes loader-fade {
+  0%, 65% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+.page-loader { animation: loader-fade 1.6s ease forwards; }
+
 /* Toast */
 .toast {
   position: fixed;
