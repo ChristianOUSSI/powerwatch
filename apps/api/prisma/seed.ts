@@ -11,11 +11,23 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// ─── Villes ────────────────────────────────────────────────────────────────
+// ─── Villes principales du Cameroun ───────────────────────────────────────────
 const CITIES = [
-  { name: "Douala",    slug: "douala",    lat: 4.0511,  lng: 9.7679 },
-  { name: "Yaoundé",   slug: "yaounde",   lat: 3.8480,  lng: 11.5021 },
-  { name: "Bafoussam", slug: "bafoussam", lat: 5.4777,  lng: 10.4192 },
+  { name: "Douala",      slug: "douala",      lat: 4.0511,  lng: 9.7679 },
+  { name: "Yaoundé",     slug: "yaounde",     lat: 3.8480,  lng: 11.5021 },
+  { name: "Bafoussam",   slug: "bafoussam",   lat: 5.4777,  lng: 10.4192 },
+  { name: "Garoua",      slug: "garoua",      lat: 9.3017,  lng: 13.3944 },
+  { name: "Maroua",      slug: "maroua",      lat: 10.5911, lng: 14.3159 },
+  { name: "Bamenda",    slug: "bamenda",     lat: 5.9631,  lng: 10.1595 },
+  { name: "Kumba",      slug: "kumba",       lat: 4.6375,  lng: 9.4400 },
+  { name: "Nkongsamba", slug: "nkongsamba",  lat: 4.9583,  lng: 9.9406 },
+  { name: "Buea",       slug: "buea",        lat: 4.1525,  lng: 9.2333 },
+  { name: "Limbé",      slug: "limbe",       lat: 4.0167,  lng: 9.2167 },
+  { name: "Ebolowa",    slug: "ebolowa",     lat: 2.9167,  lng: 11.1500 },
+  { name: "Kribi",      slug: "kribi",       lat: 2.9400,  lng: 9.9100 },
+  { name: "Bertoua",    slug: "bertoua",     lat: 4.5769,  lng: 13.6828 },
+  { name: "Sangmélima", slug: "sangmelima",  lat: 3.0042,  lng: 11.6903 },
+  { name: "Dschang",    slug: "dschang",     lat: 5.4500,  lng: 10.0667 },
 ];
 
 // ─── Quartiers Douala ───────────────────────────────────────────────────────
@@ -72,6 +84,31 @@ const BAFOUSSAM_ZONES = [
   { name: "Tougang",   slug: "tougang",    lat: 5.4650,  lng: 10.4250 },
   { name: "Nguelemendouka", slug: "nguelemendouka", lat: 5.4750, lng: 10.4050 },
 ];
+
+// ─── Zones génériques pour les autres villes (5 par ville) ──────────────────
+function makeGenericZones(lat: number, lng: number, count = 5) {
+  return Array.from({ length: count }, (_, i) => ({
+    name: `Zone ${i + 1}`,
+    slug: `zone-${i + 1}`,
+    lat: lat + (i * 0.01),
+    lng: lng + (i * 0.01),
+  }));
+}
+
+const GENERIC_ZONES_BY_CITY: Record<string, ReturnType<typeof makeGenericZones>> = {
+  garoua: makeGenericZones(9.3017, 13.3944),
+  maroua: makeGenericZones(10.5911, 14.3159),
+  bamenda: makeGenericZones(5.9631, 10.1595),
+  kumba: makeGenericZones(4.6375, 9.4400),
+  nkongsamba: makeGenericZones(4.9583, 9.9406),
+  buea: makeGenericZones(4.1525, 9.2333),
+  limbe: makeGenericZones(4.0167, 9.2167),
+  ebolowa: makeGenericZones(2.9167, 11.1500),
+  kribi: makeGenericZones(2.9400, 9.9100),
+  bertoua: makeGenericZones(4.5769, 13.6828),
+  sangmelima: makeGenericZones(3.0042, 11.6903),
+  dschang: makeGenericZones(5.4500, 10.0667),
+};
 
 // ─── Lieux de charge initiaux ────────────────────────────────────────────────
 const CHARGING_SPOTS = [
@@ -157,6 +194,27 @@ async function main() {
     });
   }
   console.log(`  ✅ ${BAFOUSSAM_ZONES.length} quartiers Bafoussam`);
+
+  // ── Zones génériques pour les autres villes ───────────────────────────────
+  for (const [slug, zones] of Object.entries(GENERIC_ZONES_BY_CITY)) {
+    const cityId = cityMap[slug];
+    if (!cityId) continue;
+    for (const zone of zones) {
+      await prisma.zone.upsert({
+        where: { cityId_slug: { cityId, slug: zone.slug } },
+        update: {},
+        create: {
+          name: zone.name,
+          slug: zone.slug,
+          cityId,
+          centroidLat: zone.lat,
+          centroidLng: zone.lng,
+          polygon: makeSquarePolygon(zone.lat, zone.lng, 0.004),
+        },
+      });
+    }
+    console.log(`  ✅ ${zones.length} zones ${slug}`);
+  }
 
   // ── Lieux de charge ───────────────────────────────────────────────────────
   for (const spot of CHARGING_SPOTS) {

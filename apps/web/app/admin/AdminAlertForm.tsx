@@ -71,6 +71,7 @@ export function AdminAlertForm() {
           >
             <option>ENEO</option>
             <option>AES</option>
+            <option>SOCADEL</option>
             <option>Autre</option>
           </select>
         </div>

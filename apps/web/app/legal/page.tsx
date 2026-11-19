@@ -33,8 +33,11 @@ export default function LegalPage() {
           <h2 className="font-bold text-zinc-200">PowerWatch Cameroun</h2>
           <p className="text-zinc-400">
             Application web progressive (PWA) de suivi citoyen des coupures d'électricité
-            au Cameroun. Projet indépendant, non affilié à ENEO, AES ou tout autre
+            au Cameroun. Projet indépendant, non affilié à ENEO, AES, SOCADEL ou tout autre
             opérateur du réseau électrique.
+          </p>
+          <p className="text-zinc-500 text-xs">
+            Conçu et développé par CADC
           </p>
         </section>
 
