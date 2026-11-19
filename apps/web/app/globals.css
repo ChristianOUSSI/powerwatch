@@ -7,6 +7,136 @@
   color-scheme: dark;
 }
 
+/* ============================================================
+   THÈME CLAIR : surcharges scoped html.light
+   Les classes Tailwind zinc/orange sont réécrites sous .light.
+   La carte Leaflet reste en dark (tuiles CARTO dark = lisible).
+   ============================================================ */
+html.light {
+  color-scheme: light;
+}
+
+/* --- Fonds zinc : 950=page, 900=carte, 800=champ, 700=hover --- */
+html.light .bg-zinc-950 { background-color: #f4f4f5; }
+html.light .bg-zinc-900 { background-color: #ffffff; }
+html.light .bg-zinc-800 { background-color: #f4f4f5; }
+html.light .bg-zinc-700 { background-color: #e4e4e7; }
+html.light .bg-zinc-600 { background-color: #d4d4d8; }
+html.light .bg-zinc-500 { background-color: #a1a1aa; }
+
+/* Fonds zinc translucides (headers, nav, overlays) */
+html.light [class*="bg-zinc-950/95"],
+html.light [class*="bg-zinc-950/90"] { background-color: rgb(255 255 255 / 0.92); }
+html.light [class*="bg-zinc-950/80"] { background-color: rgb(255 255 255 / 0.85); }
+html.light [class*="bg-zinc-950/60"] { background-color: rgb(255 255 255 / 0.65); }
+html.light [class*="bg-zinc-800/95"] { background-color: rgb(244 244 245 / 0.95); }
+html.light [class*="bg-zinc-900/"]  { background-color: rgb(255 255 255 / 0.85); }
+
+/* --- Textes zinc : échelle inversée pour le clair --- */
+html.light .text-zinc-100 { color: #18181b; }
+html.light .text-zinc-200 { color: #27272a; }
+html.light .text-zinc-300 { color: #3f3f46; }
+html.light .text-zinc-400 { color: #52525b; }
+html.light .text-zinc-500 { color: #71717a; }
+html.light .text-zinc-600 { color: #a1a1aa; }
+
+/* --- Bordures zinc --- */
+html.light .border-zinc-800 { border-color: #e4e4e7; }
+html.light .border-zinc-700 { border-color: #d4d4d8; }
+html.light .border-zinc-600 { border-color: #a1a1aa; }
+html.light .border-zinc-500 { border-color: #71717a; }
+html.light [class*="border-zinc-800/80"],
+html.light [class*="border-zinc-800/60"] { border-color: rgb(228 228 231 / 0.8); }
+
+/* --- Textes couleur : variantes foncées pour contraste sur blanc --- */
+html.light .text-red-400    { color: #dc2626; }
+html.light .text-red-300    { color: #b91c1c; }
+html.light .text-red-200    { color: #991b1b; }
+html.light .text-green-400  { color: #16a34a; }
+html.light .text-green-300  { color: #15803d; }
+html.light .text-green-200  { color: #166534; }
+html.light .text-orange-400 { color: #ea580c; }
+html.light .text-orange-300 { color: #c2410c; }
+html.light .text-orange-100 { color: #431407; }
+html.light .text-blue-400   { color: #2563eb; }
+html.light .text-amber-300  { color: #b45309; }
+html.light .text-rose-300   { color: #be123c; }
+html.light .text-emerald-300{ color: #047857; }
+html.light .text-sky-300    { color: #0369a1; }
+html.light .text-violet-300 { color: #6d28d9; }
+
+/* --- Fonds teintés (badges, onglets, cartes résumé) : pastels --- */
+html.light .bg-red-950\/40    { background-color: #fef2f2; }
+html.light .bg-green-950\/40  { background-color: #f0fdf4; }
+html.light .bg-red-900\/60    { background-color: #fee2e2; }
+html.light .bg-green-900\/60  { background-color: #dcfce7; }
+html.light .bg-orange-900\/60 { background-color: #ffedd5; }
+html.light .bg-red-900\/50    { background-color: #fee2e2; }
+html.light .bg-green-900\/50  { background-color: #dcfce7; }
+html.light .bg-orange-900\/50 { background-color: #ffedd5; }
+html.light .bg-orange-900\/30 { background-color: #fff7ed; }
+html.light .bg-red-900\/30    { background-color: #fff1f2; }
+html.light .bg-green-900\/30  { background-color: #f0fdf4; }
+html.light .bg-red-900\/40    { background-color: #fee2e2; }
+html.light .bg-green-900\/40  { background-color: #dcfce7; }
+html.light .bg-red-950\/90,
+html.light .bg-red-950\/95    { background-color: #7f1d1d; }
+html.light .bg-green-950\/95  { background-color: #14532d; }
+
+/* Badges colorés spots (pastels déjà, on éclaircit les contours) */
+html.light .border-orange-800\/50 { border-color: #fdba74; }
+html.light .border-rose-800\/50   { border-color: #fda4af; }
+html.light .border-amber-800\/50  { border-color: #fcd34d; }
+html.light .border-emerald-800\/50{ border-color: #6ee7b7; }
+html.light .border-sky-800\/50    { border-color: #7dd3fc; }
+html.light .border-violet-800\/50 { border-color: #c4b5fd; }
+html.light .border-green-800\/50  { border-color: #86efac; }
+html.light .border-green-800      { border-color: #86efac; }
+html.light .border-green-700\/60  { border-color: #4ade80; }
+html.light .border-green-700      { border-color: #4ade80; }
+html.light .border-red-800        { border-color: #fca5a5; }
+html.light .border-red-800\/50    { border-color: #fca5a5; }
+html.light .border-red-700\/60    { border-color: #f87171; }
+html.light .border-red-700        { border-color: #f87171; }
+html.light .border-red-900\/50    { border-color: #fca5a5; }
+html.light .border-orange-700\/60 { border-color: #fdba74; }
+html.light .border-orange-700     { border-color: #fdba74; }
+html.light .border-orange-800     { border-color: #fdba74; }
+
+/* --- Popup Leaflet en clair --- */
+html.light .leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #18181b !important;
+  border-color: #e4e4e7 !important;
+}
+html.light .leaflet-popup-tip {
+  background: #ffffff !important;
+}
+html.light .leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.8) !important;
+  color: #71717a !important;
+}
+html.light .leaflet-bar a {
+  background: #ffffff !important;
+  color: #3f3f46 !important;
+  border-color: #d4d4d8 !important;
+}
+html.light .leaflet-bar a:hover {
+  background: #f4f4f5 !important;
+}
+
+/* --- Skeleton en clair --- */
+html.light .skeleton {
+  background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
+  background-size: 800px 100%;
+}
+
+/* Toasts : fond foncé conservé en mode clair, texte clair */
+html.light .toast.bg-zinc-800\/95 { background-color: rgb(39 39 42 / 0.95); }
+html.light .toast.text-zinc-100  { color: #f4f4f5; }
+html.light .toast.text-green-200 { color: #bbf7d0; }
+html.light .toast.text-red-200   { color: #fecaca; }
+
 /* Masque le skip-link Next.js */
 [data-nextjs-skip-nav],
 #__next-skip-link,
@@ -81,10 +211,17 @@ body {
 .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.32,0.72,0,1) both; }
 .animate-fade-in  { animation: fade-in 0.2s ease both; }
 
+/* Transition de page : opacité seule (pas de transform → les fixed ne bougent pas) */
+@keyframes page-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.page-enter { animation: page-in 0.22s ease-out both; }
+
 /* Toast */
 .toast {
   position: fixed;
-  top: 4rem;
+  top: 5.5rem; /* sous le header + bannière d'alerte */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1200;
@@ -114,3 +251,10 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+
+/* Masque la scrollbar (sélecteurs horizontaux ville/filtres) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { API_URL } from "@/lib/api";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { ZonePublic } from "@powerwatch/shared";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const FALLBACK_CITIES = [
   { slug: "douala",    label: "Douala" },
@@ -34,6 +34,8 @@ export default function StatsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [history, setHistory] = useState<Record<string, HistoryPoint[]>>({});
   const [histLoading, setHistLoading] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [error, setError] = useState(false);
 
   // Villes depuis l'API
   useEffect(() => {
@@ -54,18 +56,29 @@ export default function StatsPage() {
     }
   }, [cities, city]);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
+    setError(false);
     fetch(`${API_URL}/api/zones?city=${city}`)
       .then((r) => r.json())
-      .then((data) => { setZones(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((data) => {
+        if (!Array.isArray(data)) throw new Error("Réponse invalide");
+        setZones(data);
+        setLoading(false);
+        setUpdatedAt(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
+      })
+      .catch(() => {
+        setLoading(false);
+        setError(true);
+      });
   }, [city]);
 
-  const outageZones  = zones.filter((z) => z.snapshot?.status === "OUTAGE")
-    .sort((a, b) => (b.snapshot?.activeReports ?? 0) - (a.snapshot?.activeReports ?? 0));
+  useEffect(() => { load(); }, [load]);
+
   const stableZones  = zones.filter((z) => z.snapshot?.status === "STABLE");
-  const unknownCount = zones.filter((z) => !z.snapshot || z.snapshot.status === "UNKNOWN").length;
+  const problemCount = zones.filter(
+    (z) => z.snapshot?.status === "OUTAGE" || z.snapshot?.status === "UNSTABLE"
+  ).length;
   const totalReports = zones.reduce((s, z) => s + (z.snapshot?.activeReports ?? 0), 0);
 
   async function toggleHistory(zoneId: string) {
@@ -77,8 +90,10 @@ export default function StatsPage() {
       const res = await fetch(`${API_URL}/api/zones/${zoneId}/history?days=7`);
       if (res.ok) {
         const data: HistoryPoint[] = await res.json();
-        setHistory((h) => ({ ...h, [zoneId]: data }));
+        setHistory((h) => ({ ...h, [zoneId]: Array.isArray(data) ? data : [] }));
       }
+    } catch {
+      // historique indisponible, on affiche l'état vide
     } finally {
       setHistLoading(false);
     }
@@ -94,9 +109,12 @@ export default function StatsPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       {/* Header sticky */}
       <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
-        <div className="px-4 pt-4 pb-3">
-          <h1 className="font-bold text-base text-zinc-100">Statistiques réseau</h1>
-          <p className="text-xs text-zinc-500">Mise à jour en temps réel</p>
+        <div className="px-4 pt-4 pb-3 flex items-start justify-between">
+          <div>
+            <h1 className="font-bold text-base text-zinc-100">Statistiques réseau</h1>
+            <p className="text-xs text-zinc-500">Mise à jour en temps réel</p>
+          </div>
+          <ThemeToggle />
         </div>
         {/* Sélecteur ville */}
         <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none">
@@ -117,11 +135,28 @@ export default function StatsPage() {
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Résumé en langage clair */}
+        {!loading && zones.length > 0 && (
+          <p className="text-xs text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 leading-relaxed">
+            <span className="font-semibold text-zinc-200">
+              {cities.find((c) => c.slug === city)?.label ?? city}
+            </span>
+            {" : "}
+            {problemCount === 0
+              ? "aucun problème signalé"
+              : `${problemCount} quartier${problemCount > 1 ? "x" : ""} en difficulté`}
+            {" sur "}
+            {zones.length} suivis
+            {updatedAt && <span className="text-zinc-600"> · maj {updatedAt}</span>}
+            .
+          </p>
+        )}
+
         {/* Cartes résumé */}
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-red-950/40 border border-red-900/50 rounded-2xl p-3 text-center">
-            <p className="text-2xl font-bold text-red-400">{outageZones.length}</p>
-            <p className="text-[10px] text-zinc-500 mt-0.5">En coupure</p>
+            <p className="text-2xl font-bold text-red-400">{problemCount}</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">En difficulté</p>
           </div>
           <div className="bg-green-950/40 border border-green-900/50 rounded-2xl p-3 text-center">
             <p className="text-2xl font-bold text-green-400">{stableZones.length}</p>
@@ -147,10 +182,10 @@ export default function StatsPage() {
                   style={{ width: `${(stableZones.length / zones.length) * 100}%` }}
                 />
               )}
-              {outageZones.length > 0 && (
+              {problemCount > 0 && (
                 <div
                   className="bg-red-500 h-full transition-all"
-                  style={{ width: `${(outageZones.length / zones.length) * 100}%` }}
+                  style={{ width: `${(problemCount / zones.length) * 100}%` }}
                 />
               )}
             </div>
@@ -165,7 +200,7 @@ export default function StatsPage() {
               tab === "outage" ? "bg-red-900/60 text-red-300" : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            Problèmes ({outageZones.length})
+            Problèmes ({problemCount})
           </button>
           <button
             onClick={() => setTab("stable")}
@@ -177,6 +212,16 @@ export default function StatsPage() {
           </button>
         </div>
 
+        {/* Erreur réseau */}
+        {error && !loading && (
+          <button
+            onClick={load}
+            className="w-full bg-red-950/40 border border-red-900/50 rounded-xl px-4 py-3 text-sm text-red-300 active:scale-[0.99] transition"
+          >
+            Impossible de charger les données. Toucher pour réessayer.
+          </button>
+        )}
+
         {/* Liste */}
         {loading ? (
           <div className="space-y-2">
@@ -184,7 +229,7 @@ export default function StatsPage() {
               <div key={i} className="skeleton h-16 rounded-xl" />
             ))}
           </div>
-        ) : displayZones.length === 0 ? (
+        ) : displayZones.length === 0 && !error ? (
           <div className="text-center py-12">
             <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
               {tab === "outage" ? (

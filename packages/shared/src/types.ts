@@ -1,4 +1,4 @@
-// Shared types — used by both frontend and backend
+// Shared types : utilisés par le frontend et le backend
 
 export type ReportType = "OUTAGE" | "MICRO_OUTAGE" | "RESTORED";
 export type ZoneStatus = "STABLE" | "UNSTABLE" | "OUTAGE" | "UNKNOWN";
@@ -16,7 +16,7 @@ export interface ZonePublic {
 
 export interface ZoneSnapshotPublic {
   status: ZoneStatus;
-  outageScore: number;       // 0–100
+  outageScore: number;       // 0-100
   activeReports: number;
   outageSince: string | null; // ISO date
   computedAt: string;

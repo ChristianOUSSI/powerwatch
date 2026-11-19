@@ -32,13 +32,19 @@ export function AdminLogin({ onLogin }: { onLogin: () => void }) {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <div className="text-center">
-          <span className="text-4xl">⚡</span>
-          <h1 className="text-lg font-bold text-orange-400 mt-1">PowerWatch Admin</h1>
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-orange-500 flex items-center justify-center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+              <path d="M13 2L4.09 12.97A1 1 0 005 14.5h6.5L10 22l9.91-10.97A1 1 0 0019 10h-6.5L13 2z"/>
+            </svg>
+          </div>
+          <h1 className="text-lg font-bold text-orange-400 mt-2">PowerWatch Admin</h1>
         </div>
         <div className="space-y-3">
           <input
             type="email"
             placeholder="Email"
+            autoFocus
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -47,6 +53,7 @@ export function AdminLogin({ onLogin }: { onLogin: () => void }) {
           <input
             type="password"
             placeholder="Mot de passe"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

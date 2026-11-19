@@ -1,6 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
+
 export default function OfflinePage() {
+  // Retour réseau : recharge pour afficher la carte à jour
+  useEffect(() => {
+    const onOnline = () => window.location.reload();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center p-6 text-center">
       <div className="w-16 h-16 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">

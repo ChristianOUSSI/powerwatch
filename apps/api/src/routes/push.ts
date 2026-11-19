@@ -2,10 +2,11 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getVapidPublicKey } from "../services/push.js";
+import { rateLimiter } from "../middlewares/rateLimiter.js";
 
 export const pushRouter = Router();
 
-// GET /api/push/vapid-key — clé publique pour pushManager.subscribe
+// GET /api/push/vapid-key : clé publique pour pushManager.subscribe
 pushRouter.get("/vapid-key", (_req, res) => {
   const key = getVapidPublicKey();
   if (!key) return res.status(503).json({ error: "Push non configuré." });
@@ -21,8 +22,8 @@ const SubscribeSchema = z.object({
   cityId: z.string().optional(),
 });
 
-// POST /api/push/subscribe — enregistre une souscription Web Push
-pushRouter.post("/subscribe", async (req, res) => {
+// POST /api/push/subscribe : enregistre une souscription Web Push
+pushRouter.post("/subscribe", rateLimiter, async (req, res) => {
   const parsed = SubscribeSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });

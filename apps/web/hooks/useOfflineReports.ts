@@ -21,6 +21,11 @@ export async function queueReport(report: ReportPayload) {
   await db.add(STORE, { ...report, queuedAt: new Date().toISOString() });
 }
 
+export async function countPendingReports(): Promise<number> {
+  const db = await getDB();
+  return db.count(STORE);
+}
+
 export async function flushPendingReports(apiUrl: string) {
   const db = await getDB();
   const all = await db.getAll(STORE);
@@ -33,7 +38,12 @@ export async function flushPendingReports(apiUrl: string) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item),
       });
-      if (res.ok) sent.push(item.id);
+      // 2xx envoyé, 4xx rejet définitif (anti-flood, validation) : on sort de la
+      // file pour ne pas retenter indéfiniment une requête vouée à l'échec.
+      // Seuls les 5xx et les erreurs réseau conservent l'élément en attente.
+      if (res.ok || (res.status >= 400 && res.status < 500)) {
+        sent.push(item.id);
+      }
     } catch {
       // réseau encore coupé, on réessaie plus tard
     }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Icônes SVG inline — pas d'emojis (rendu incohérent selon Android)
+// Icônes SVG inline, pas d'emojis (rendu incohérent selon Android)
 const MapIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
@@ -35,11 +35,14 @@ const LINKS = [
   { href: "/",       Icon: MapIcon,      label: "Carte"   },
   { href: "/stats",  Icon: BarChartIcon, label: "Stats"   },
   { href: "/spots",  Icon: PlugIcon,     label: "Charger" },
-  { href: "/legal",  Icon: InfoIcon,     label: "Infos"   },
+  { href: "/legal",  Icon: InfoIcon,     label: "Aide"    },
 ];
 
 export function BottomNav() {
   const path = usePathname();
+
+  // Pas de nav sur l'admin (dashboard) ni sur la page offline plein écran
+  if (path.startsWith("/admin") || path === "/offline") return null;
 
   return (
     <nav

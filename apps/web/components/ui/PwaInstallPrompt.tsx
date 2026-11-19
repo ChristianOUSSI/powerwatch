@@ -25,7 +25,12 @@ export function PwaInstallPrompt() {
     }
 
     // Déjà rejeté → ne pas afficher pendant 7 jours
-    const dismissed = localStorage.getItem(DISMISSED_KEY);
+    let dismissed: string | null = null;
+    try {
+      dismissed = localStorage.getItem(DISMISSED_KEY);
+    } catch {
+      // localStorage indisponible (navigation privée stricte) : on continue
+    }
     if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 3600 * 1000) return;
 
     // Détection iOS (Safari)
@@ -81,7 +86,11 @@ export function PwaInstallPrompt() {
             ✕
           </button>
           <div className="flex items-start gap-3">
-            <span className="text-3xl shrink-0">⚡</span>
+            <span className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M13 2L4.09 12.97A1 1 0 005 14.5h6.5L10 22l9.91-10.97A1 1 0 0019 10h-6.5L13 2z"/>
+              </svg>
+            </span>
             <div>
               <p className="font-bold text-sm text-zinc-100">Installer PowerWatch</p>
               <p className="text-xs text-zinc-400 mt-1">
@@ -111,8 +120,10 @@ export function PwaInstallPrompt() {
           ✕
         </button>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0">
-            ⚡
+          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M13 2L4.09 12.97A1 1 0 005 14.5h6.5L10 22l9.91-10.97A1 1 0 0019 10h-6.5L13 2z"/>
+            </svg>
           </div>
           <div>
             <p className="font-bold text-sm text-zinc-100">Installer PowerWatch</p>

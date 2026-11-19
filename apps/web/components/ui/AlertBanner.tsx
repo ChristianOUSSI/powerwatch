@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL } from "@/lib/api";
+import type { OfficialAlertPublic } from "@powerwatch/shared";
 
 interface Alert { id: string; title: string; message: string; source: string }
 
@@ -11,12 +11,18 @@ export function AlertBanner() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    // On peut appeler /api/admin/alerts publiquement pour les alertes actives
-    // Pour l'instant, on simule avec une route dédiée
     fetch(`${API_URL}/api/alerts`)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then(setAlerts)
       .catch(() => {});
+
+    // Alertes publiées en temps réel via Socket.io (relais DOM par useSocket)
+    const onAlert = (e: Event) => {
+      const alert = (e as CustomEvent<OfficialAlertPublic>).detail;
+      setAlerts((prev) => (prev.some((a) => a.id === alert.id) ? prev : [alert, ...prev]));
+    };
+    window.addEventListener("pw:alert", onAlert);
+    return () => window.removeEventListener("pw:alert", onAlert);
   }, []);
 
   if (!alerts.length) return null;

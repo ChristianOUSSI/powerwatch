@@ -17,6 +17,17 @@ export default function LegalPage() {
 
       <div className="p-4 max-w-xl mx-auto space-y-6 text-sm leading-relaxed pb-8">
 
+        {/* Comment ça marche */}
+        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
+          <h2 className="font-bold text-zinc-200">Comment ça marche</h2>
+          <ul className="text-zinc-400 space-y-1.5">
+            <li>1. La carte couleur montre l'état du courant par quartier : vert = stable, orange = instable, rouge = coupure.</li>
+            <li>2. Touche un quartier sur la carte (ou le bouton Signaler en bas) pour dire si le courant est coupé, faible ou rétabli.</li>
+            <li>3. Plus de monde signale, plus l'info est fiable. Ton quartier se met à jour en temps réel.</li>
+            <li>4. L'onglet Charger liste les endroits où brancher ton téléphone pendant une coupure.</li>
+          </ul>
+        </section>
+
         {/* Présentation */}
         <section className="space-y-2">
           <h2 className="font-bold text-zinc-200">PowerWatch Cameroun</h2>
@@ -79,7 +90,7 @@ export default function LegalPage() {
         </section>
 
         <p className="text-zinc-600 text-xs text-center">
-          Dernière mise à jour : novembre 2025
+          Dernière mise à jour : novembre 2026
         </p>
       </div>
     </div>

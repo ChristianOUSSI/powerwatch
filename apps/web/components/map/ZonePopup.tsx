@@ -43,12 +43,7 @@ export function ZonePopup({ zone }: { zone: ZonePublic }) {
       )}
       {snap && (
         <div className="flex items-center justify-between text-[10px] text-zinc-500">
-          <span>{snap.activeReports} signalement{snap.activeReports > 1 ? "s" : ""}</span>
-          {snap.outageScore > 0 && (
-            <span className="bg-zinc-800 px-1.5 py-0.5 rounded-full">
-              Score {Math.round(snap.outageScore)}/100
-            </span>
-          )}
+          <span>{snap.activeReports} signalement{snap.activeReports > 1 ? "s" : ""} récent{snap.activeReports > 1 ? "s" : ""}</span>
         </div>
       )}
       <button

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { adminFetch } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { adminFetch, apiFetch } from "@/lib/api";
 import { getToken } from "@/lib/auth";
+import type { CityPublic, ZonePublic } from "@powerwatch/shared";
 
 export function AdminAlertForm() {
   const [form, setForm] = useState({
@@ -16,14 +17,28 @@ export function AdminAlertForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [zones, setZones] = useState<(ZonePublic & { cityName?: string })[]>([]);
+
+  // Liste des quartiers pour éviter de demander un ID technique à l'admin
+  useEffect(() => {
+    Promise.all([
+      apiFetch<ZonePublic[]>("/api/zones"),
+      apiFetch<CityPublic[]>("/api/cities"),
+    ])
+      .then(([z, c]) => {
+        const cityName = new Map(c.map((x) => [x.id, x.name]));
+        setZones(z.map((zone) => ({ ...zone, cityName: cityName.get(zone.cityId) })));
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const token = getToken();
+    if (!token) { setError("Session expirée, reconnecte-toi."); return; }
     setLoading(true);
     setError("");
     setSuccess(false);
-    const token = getToken();
-    if (!token) return;
     try {
       await adminFetch("/api/admin/alerts", token, {
         method: "POST",
@@ -60,13 +75,19 @@ export function AdminAlertForm() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-zinc-500 mb-1 block">ID Zone (optionnel)</label>
-          <input
+          <label className="text-xs text-zinc-500 mb-1 block">Quartier (optionnel)</label>
+          <select
             value={form.zoneId}
             onChange={(e) => setForm((f) => ({ ...f, zoneId: e.target.value }))}
-            placeholder="Laisser vide = national"
             className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm"
-          />
+          >
+            <option value="">Toute la ville / national</option>
+            {zones.map((z) => (
+              <option key={z.id} value={z.id}>
+                {z.cityName ? `${z.cityName} - ` : ""}{z.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -115,7 +136,7 @@ export function AdminAlertForm() {
       </div>
 
       {error && <p className="text-red-400 text-xs">{error}</p>}
-      {success && <p className="text-green-400 text-xs">✅ Alerte publiée !</p>}
+      {success && <p className="text-green-400 text-xs">Alerte publiée.</p>}
 
       <button
         type="submit"

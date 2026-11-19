@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { API_URL } from "@/lib/api";
+import { getDeviceId } from "@/lib/device";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { ChargingSpot } from "@powerwatch/shared";
 import { AddSpotForm } from "./AddSpotForm";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 // Badge typographique par type de lieu (couleurs distinctes, rendu cohérent)
 const TYPE_INFO: Record<string, { badge: string; label: string; cls: string }> = {
@@ -23,8 +24,20 @@ const FILTER_OPTIONS = [
   { key: "station",    label: "Stations" },
   { key: "restaurant", label: "Restos" },
   { key: "hotel",      label: "Hôtels" },
+  { key: "mosque",     label: "Mosquées" },
+  { key: "church",     label: "Églises" },
   { key: "other",      label: "Autres" },
 ];
+
+const VOTED_KEY = "pw_spot_upvotes";
+
+function loadVoted(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(VOTED_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
 
 export default function SpotsPage() {
   const [spots, setSpots]   = useState<ChargingSpot[]>([]);
@@ -32,22 +45,41 @@ export default function SpotsPage() {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter]   = useState("all");
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
+  const [error, setError]     = useState(false);
+
+  useEffect(() => { setUpvoted(loadVoted()); }, []);
 
   async function load() {
     setLoading(true);
+    setError(false);
     try {
       const r = await fetch(`${API_URL}/api/spots`);
       if (r.ok) setSpots(await r.json());
+      else setError(true);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
   }
 
   async function upvote(id: string) {
-    if (upvoted.has(id)) return; // un seul vote par session
-    await fetch(`${API_URL}/api/spots/${id}/upvote`, { method: "POST" });
-    setUpvoted((prev) => new Set(prev).add(id));
-    setSpots((prev) => prev.map((s) => s.id === id ? { ...s, upvotes: s.upvotes + 1 } : s));
+    if (upvoted.has(id)) return; // un seul vote par appareil
+    const res = await fetch(`${API_URL}/api/spots/${id}/upvote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId: getDeviceId() }),
+    });
+    if (!res.ok) return;
+    // Le serveur peut répondre already:true (vote déjà compté côté serveur,
+    // ex: localStorage vidé) : on marque le vote sans ré-incrémenter.
+    const data = await res.json().catch(() => ({}));
+    const next = new Set(upvoted).add(id);
+    setUpvoted(next);
+    try { localStorage.setItem(VOTED_KEY, JSON.stringify([...next])); } catch {}
+    if (!data.already) {
+      setSpots((prev) => prev.map((s) => s.id === id ? { ...s, upvotes: s.upvotes + 1 } : s));
+    }
   }
 
   function openMaps(spot: ChargingSpot) {
@@ -70,12 +102,15 @@ export default function SpotsPage() {
             <h1 className="font-bold text-base">Où charger ?</h1>
             <p className="text-xs text-zinc-500">Lieux avec de l'électricité</p>
           </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="text-xs bg-orange-500 hover:bg-orange-400 text-white px-3 py-1.5 rounded-full font-medium transition mt-1"
-          >
-            + Ajouter
-          </button>
+          <div className="flex items-center gap-2 mt-1">
+            <ThemeToggle />
+            <button
+              onClick={() => setShowForm(true)}
+              className="text-xs bg-orange-500 hover:bg-orange-400 text-white px-3 py-1.5 rounded-full font-medium transition"
+            >
+              + Ajouter
+            </button>
+          </div>
         </div>
         {/* Filtres */}
         <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none">
@@ -102,7 +137,7 @@ export default function SpotsPage() {
           onClick={() => setShowForm(false)}
         >
           <div className="w-full" onClick={(e) => e.stopPropagation()}>
-            <AddSpotForm onAdded={() => { setShowForm(false); load(); }} />
+            <AddSpotForm onAdded={() => { setShowForm(false); load(); }} onClose={() => setShowForm(false)} />
           </div>
         </div>
       )}
@@ -113,11 +148,21 @@ export default function SpotsPage() {
           <p className="text-xs text-zinc-600 mb-3">{displayed.length} lieu{displayed.length > 1 ? "x" : ""}</p>
         )}
 
+        {/* Erreur réseau */}
+        {error && !loading && (
+          <button
+            onClick={load}
+            className="w-full mb-3 bg-red-950/40 border border-red-900/50 rounded-xl px-4 py-3 text-sm text-red-300 active:scale-[0.99] transition"
+          >
+            Impossible de charger les lieux. Toucher pour réessayer.
+          </button>
+        )}
+
         {loading ? (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-20 rounded-2xl" />)}
           </div>
-        ) : displayed.length === 0 ? (
+        ) : error ? null : displayed.length === 0 ? (
           <div className="text-center py-16 space-y-2">
             <div className="w-12 h-12 mx-auto rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-600">
@@ -129,7 +174,7 @@ export default function SpotsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {displayed
+            {[...displayed]
               .sort((a, b) => b.upvotes - a.upvotes)
               .map((spot) => {
               const info = TYPE_INFO[spot.type] ?? TYPE_INFO.other;

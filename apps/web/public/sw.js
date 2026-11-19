@@ -1,15 +1,14 @@
-// Service Worker — PowerWatch Cameroun
+// Service Worker PowerWatch Cameroun
 // Stratégie : Cache-First pour les assets, Network-First pour l'API, Stale-While-Revalidate pour la carte
 
-const CACHE_NAME = "powerwatch-v1";
+const CACHE_NAME = "powerwatch-v3";
 const STATIC_ASSETS = [
   "/",
   "/offline",
   "/manifest.json",
-  "/_next/static/css/app.css",
 ];
 
-// Install — précharge les assets critiques
+// Install : précharge les assets critiques
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -17,7 +16,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate — nettoie les anciens caches
+// Activate : nettoie les anciens caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -31,8 +30,22 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // API → Network-First avec fallback cache
-  if (url.pathname.startsWith("/api/")) {
+  // Ne jamais intercepter les requêtes non-GET
+  if (event.request.method !== "GET") return;
+
+  // Navigation : réseau d'abord, fallback page offline hors-ligne
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match("/offline").then((r) => r || caches.match("/"))
+      )
+    );
+    return;
+  }
+
+  // API → Network-First avec fallback cache.
+  // /api/admin exclu : données sensibles, jamais servies depuis le cache.
+  if (url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/admin")) {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
@@ -45,15 +58,60 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Assets statiques → Cache-First
+  // Chunks Next.js (JS/CSS hashés) → Cache-First avec mise en cache au premier fetch
+  // Indispensable pour que la PWA fonctionne hors-ligne
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.match(event.request).then(
+        (cached) =>
+          cached ??
+          fetch(event.request).then((res) => {
+            if (res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+            }
+            return res;
+          })
+      )
+    );
+    return;
+  }
+
+  // Tuiles de carte et autres ressources cross-origin (CARTO, etc.)
+  // → Cache-First avec stockage : sans ça la carte est vide hors-ligne.
+  if (url.origin !== self.location.origin) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((res) => {
+          const type = res.headers.get("content-type") || "";
+          if (res.ok && type.startsWith("image")) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // Assets statiques same-origin → Cache-First avec stockage
   event.respondWith(
-    caches.match(event.request).then(
-      (cached) => cached ?? fetch(event.request)
-    )
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((res) => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+        }
+        return res;
+      });
+    })
   );
 });
 
-// Web Push — affiche la notification même app fermée
+// Web Push : affiche la notification même app fermée
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { /* payload non-JSON */ }
@@ -83,7 +141,7 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// Sync différé — envoie les signalements en attente quand le réseau revient
+// Sync différé : envoie les signalements en attente quand le réseau revient
 self.addEventListener("sync", (event) => {
   if (event.tag === "sync-reports") {
     event.waitUntil(syncPendingReports());

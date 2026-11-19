@@ -16,10 +16,10 @@ interface Report {
   zone?: { name: string };
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  OUTAGE: "🔴 Coupure",
-  MICRO_OUTAGE: "🟠 Faible tension",
-  RESTORED: "🟢 Revenu",
+const TYPE_META: Record<string, { label: string; dot: string }> = {
+  OUTAGE:        { label: "Coupure",        dot: "bg-red-500"    },
+  MICRO_OUTAGE:  { label: "Faible tension", dot: "bg-orange-500" },
+  RESTORED:      { label: "Revenu",         dot: "bg-green-500"  },
 };
 
 export function AdminReportsList() {
@@ -51,15 +51,30 @@ export function AdminReportsList() {
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <p className="text-zinc-500 text-sm">Chargement…</p>;
-  if (!reports.length) return <p className="text-zinc-500 text-sm">Aucun signalement actif.</p>;
+  if (loading && !reports.length) {
+    return (
+      <div className="space-y-2">
+        {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
+      <button
+        onClick={() => { setLoading(true); load(); }}
+        className="text-xs text-zinc-500 hover:text-zinc-300 transition"
+      >
+        Rafraîchir
+      </button>
+      {!reports.length && <p className="text-zinc-500 text-sm">Aucun signalement actif.</p>}
       {reports.map((r) => (
         <div key={r.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium">{TYPE_LABEL[r.type] ?? r.type}</p>
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${TYPE_META[r.type]?.dot ?? "bg-zinc-500"}`} />
+              {TYPE_META[r.type]?.label ?? r.type}
+            </p>
             <p className="text-xs text-zinc-500">
               {r.zone?.name ?? r.zoneId} ·{" "}
               {formatDistanceToNow(new Date(r.createdAt), { locale: fr, addSuffix: true })}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_URL } from "@/lib/api";
+import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
 
 const TYPES = [
   { value: "cafe",       label: "Café / Cyber" },
@@ -14,7 +14,8 @@ const TYPES = [
   { value: "other",      label: "Autre" },
 ];
 
-export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
+export function AddSpotForm({ onAdded, onClose }: { onAdded: () => void; onClose?: () => void }) {
+  const swipe = useSwipeDismiss(() => onClose?.());
   const [form, setForm] = useState({ name: "", type: "cafe", address: "", lat: "", lng: "", photoUrl: "" });
   const [loading, setLoading]  = useState(false);
   const [error, setError]      = useState("");
@@ -33,13 +34,23 @@ export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
         set("lng", pos.coords.longitude.toFixed(5));
         setGpsLoading(false);
       },
-      () => { setError("Impossible d'obtenir ta position"); setGpsLoading(false); }
+      () => { setError("Impossible d'obtenir ta position"); setGpsLoading(false); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.lat || !form.lng) { setError("Coordonnées requises, utilise le bouton GPS"); return; }
+    const lat = parseFloat(form.lat);
+    const lng = parseFloat(form.lng);
+    if (!form.lat || !form.lng || isNaN(lat) || isNaN(lng)) {
+      setError("Coordonnées requises, utilise le bouton GPS ou saisis-les");
+      return;
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setError("Coordonnées invalides (latitude -90 à 90, longitude -180 à 180)");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -49,8 +60,8 @@ export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
         body: JSON.stringify({
           ...form,
           photoUrl: form.photoUrl || undefined,
-          lat: parseFloat(form.lat),
-          lng: parseFloat(form.lng),
+          lat,
+          lng,
         }),
       });
       if (!res.ok) {
@@ -70,7 +81,11 @@ export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
     <form
       onSubmit={handleSubmit}
       className="bg-zinc-900 border-t border-zinc-700 rounded-t-3xl animate-slide-up"
-      style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+      style={{
+        paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
+        ...swipe.style,
+      }}
+      {...swipe.handlers}
     >
       {/* Handle */}
       <div className="flex justify-center pt-3 pb-4">
@@ -123,6 +138,24 @@ export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
           className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-600 focus:outline-none focus:border-orange-500 transition"
         />
 
+        {/* Coordonnées : GPS auto ou saisie manuelle */}
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            placeholder="Latitude"
+            inputMode="decimal"
+            value={form.lat}
+            onChange={(e) => set("lat", e.target.value)}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-600 focus:outline-none focus:border-orange-500 transition"
+          />
+          <input
+            placeholder="Longitude"
+            inputMode="decimal"
+            value={form.lng}
+            onChange={(e) => set("lng", e.target.value)}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder-zinc-600 focus:outline-none focus:border-orange-500 transition"
+          />
+        </div>
+
         {/* GPS */}
         <button
           type="button"
@@ -133,7 +166,7 @@ export function AddSpotForm({ onAdded }: { onAdded: () => void }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
           </svg>
-          {gpsLoading ? "Localisation…" : form.lat ? `${form.lat}, ${form.lng}` : "Utiliser ma position GPS"}
+          {gpsLoading ? "Localisation…" : "Remplir avec ma position GPS"}
         </button>
 
         {error && (

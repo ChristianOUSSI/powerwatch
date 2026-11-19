@@ -6,16 +6,23 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useZonesStore } from "@/store/zones";
 import { useSocket } from "@/hooks/useSocket";
+import { API_URL } from "@/lib/api";
 import { ZonePopup } from "./ZonePopup";
 import type { CityPublic, ZonePublic } from "@powerwatch/shared";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const STATUS_CLASS: Record<string, string> = {
   STABLE:   "zone-stable",
   UNSTABLE: "zone-unstable",
   OUTAGE:   "zone-outage",
   UNKNOWN:  "zone-unknown",
+};
+
+// Couleurs de secours pour les zones sans polygone (seed initial)
+const STATUS_COLOR: Record<string, string> = {
+  STABLE:   "#22c55e",
+  UNSTABLE: "#f97316",
+  OUTAGE:   "#ef4444",
+  UNKNOWN:  "#52525b",
 };
 
 // Repli si l'API villes est injoignable
@@ -48,6 +55,7 @@ export default function PowerMap() {
   const [cities, setCities] = useState(FALLBACK_CITIES);
   const [citySlug, setCitySlug] = useState("douala");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -78,10 +86,17 @@ export default function PowerMap() {
     fetch(`${API_URL}/api/zones?city=${slug}`)
       .then((r) => r.json())
       .then((data: ZonePublic[]) => {
+        // L'API peut renvoyer {error: ...} : ne jamais stocker autre chose
+        // qu'un tableau, sinon zones.map plante tout le rendu.
+        if (!Array.isArray(data)) throw new Error("Réponse invalide");
         setZones(data);
         setLoading(false);
+        setLoadError(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoading(false);
+        setLoadError(true);
+      });
   }, [setZones]);
 
   useEffect(() => { loadZones(citySlug); }, [citySlug, loadZones]);
@@ -120,7 +135,7 @@ export default function PowerMap() {
 
   return (
     <div className="relative h-full w-full">
-      {/* Sélecteur de ville — flottant en haut de la carte */}
+      {/* Sélecteur de ville, flottant en haut de la carte */}
       <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[400] flex gap-1 bg-zinc-950/80 backdrop-blur border border-zinc-800 rounded-full p-1">
         {cities.map((city) => (
           <button
@@ -136,6 +151,16 @@ export default function PowerMap() {
           </button>
         ))}
       </div>
+
+      {/* Erreur de chargement : pastille avec retry */}
+      {loadError && !loading && (
+        <button
+          onClick={() => loadZones(citySlug)}
+          className="absolute top-14 left-1/2 -translate-x-1/2 z-[400] bg-red-950/90 border border-red-800 text-red-200 text-xs px-4 py-2 rounded-full backdrop-blur active:scale-95 transition"
+        >
+          Connexion impossible, toucher pour réessayer
+        </button>
+      )}
 
       {/* Indicateur de chargement */}
       {loading && (
@@ -214,9 +239,31 @@ export default function PowerMap() {
         )}
 
         {zones.map((zone) => {
-          if (!zone.polygon) return null;
           const status = zone.snapshot?.status ?? "UNKNOWN";
           const isSelected = zone.id === selectedZoneId;
+
+          // Zones sans polygone : marqueur au centroïde
+          if (!zone.polygon) {
+            return (
+              <CircleMarker
+                key={`${zone.id}-${status}-${isSelected}`}
+                center={[zone.centroidLat, zone.centroidLng]}
+                radius={isSelected ? 12 : 9}
+                pathOptions={{
+                  color: STATUS_COLOR[status],
+                  fillColor: STATUS_COLOR[status],
+                  fillOpacity: isSelected ? 0.85 : 0.55,
+                  weight: isSelected ? 3 : 2,
+                }}
+                eventHandlers={{ click: () => selectZone(zone.id) }}
+              >
+                <Popup>
+                  <ZonePopup zone={zone} />
+                </Popup>
+              </CircleMarker>
+            );
+          }
+
           return (
             <GeoJSON
               key={`${zone.id}-${status}-${isSelected}`}

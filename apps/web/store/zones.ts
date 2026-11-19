@@ -18,7 +18,7 @@ interface ZonesState {
 export const useZonesStore = create<ZonesState>((set) => ({
   zones: [],
   selectedZoneId: null,
-  isOffline: false,
+  isOffline: typeof navigator !== "undefined" ? !navigator.onLine : false,
   lastSyncAt: null,
   reportRequested: false,
   setZones: (zones) => set({ zones, lastSyncAt: new Date().toISOString() }),

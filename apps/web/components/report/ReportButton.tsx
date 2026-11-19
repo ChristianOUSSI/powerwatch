@@ -2,20 +2,11 @@
 
 import { useState, useEffect, useRef, type ComponentType } from "react";
 import { useZonesStore } from "@/store/zones";
-import { queueReport, flushPendingReports } from "@/hooks/useOfflineReports";
+import { queueReport, flushPendingReports, countPendingReports } from "@/hooks/useOfflineReports";
+import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
+import { API_URL } from "@/lib/api";
+import { getDeviceId } from "@/lib/device";
 import type { ReportType } from "@powerwatch/shared";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-function getDeviceId(): string {
-  if (typeof window === "undefined") return "";
-  let id = localStorage.getItem("pw_device_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("pw_device_id", id);
-  }
-  return id;
-}
 
 // Distance approximative en km (projection équirectangulaire, largement suffisant à l'échelle d'une ville)
 function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -96,8 +87,15 @@ export function ReportButton() {
   const [success, setSuccess] = useState(false);
   const [locating, setLocating] = useState(false);
   const [autoZone, setAutoZone] = useState(false);
+  const [pending, setPending] = useState(0);
+  const swipe = useSwipeDismiss(() => setOpen(false));
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
   const locatingRef = useRef(false);
+
+  // Nombre de signalements en attente de sync (IndexedDB)
+  useEffect(() => {
+    countPendingReports().then(setPending).catch(() => {});
+  }, []);
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId);
 
@@ -169,6 +167,8 @@ export function ReportButton() {
     try {
       if (isOffline) {
         await queueReport(payload);
+        setPending((p) => p + 1);
+        navigator.vibrate?.(30);
         showToast("Mis en attente (hors-ligne)", "info");
       } else {
         const res = await fetch(`${API_URL}/api/reports`, {
@@ -179,16 +179,20 @@ export function ReportButton() {
         if (res.ok) {
           setSuccess(true);
           setAutoZone(false);
+          navigator.vibrate?.(60);
           showToast("Signalement envoyé, merci !", "ok");
           setTimeout(() => setSuccess(false), 2000);
           await flushPendingReports(API_URL);
+          countPendingReports().then(setPending).catch(() => {});
         } else {
-          const err = await res.json();
-          showToast(err.error ?? "Erreur d'envoi", "err");
+          const err = await res.json().catch(() => ({}));
+          showToast(typeof err.error === "string" ? err.error : "Erreur d'envoi", "err");
         }
       }
     } catch {
       await queueReport(payload);
+      setPending((p) => p + 1);
+      navigator.vibrate?.(30);
       showToast("Réseau indisponible, signalement en attente", "info");
     } finally {
       setLoading(null);
@@ -214,8 +218,8 @@ export function ReportButton() {
   }, [open]);
 
   const toastColors = {
-    ok:   "bg-green-900/90 border border-green-700 text-green-200",
-    err:  "bg-red-900/90 border border-red-700 text-red-200",
+    ok:   "bg-green-950/95 border border-green-700 text-green-200",
+    err:  "bg-red-950/95 border border-red-700 text-red-200",
     info: "bg-zinc-800/95 border border-zinc-700 text-zinc-100",
   };
 
@@ -223,7 +227,7 @@ export function ReportButton() {
     <>
       {/* Toast */}
       {toast && (
-        <div className={`toast ${toastColors[toast.kind]}`}>
+        <div className={`toast ${toastColors[toast.kind]}`} role="status" aria-live="polite">
           {toast.text}
         </div>
       )}
@@ -236,8 +240,12 @@ export function ReportButton() {
         >
           <div
             className="w-full bg-zinc-950 border-t border-zinc-800 rounded-t-3xl animate-slide-up"
-            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+            style={{
+              paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
+              ...swipe.style,
+            }}
             onClick={(e) => e.stopPropagation()}
+            {...swipe.handlers}
           >
             {/* Handle bar */}
             <div className="flex justify-center pt-3 pb-4">
@@ -259,6 +267,26 @@ export function ReportButton() {
                 </p>
               )}
             </div>
+
+            {/* Sélecteur de quartier : fonctionne sans GPS ni tap sur la carte */}
+            {!selectedZone && zones.length > 0 && (
+              <div className="px-4 pb-2">
+                <p className="text-center text-[10px] text-zinc-600 mb-1.5">
+                  Ou choisis ton quartier directement :
+                </p>
+                <div className="max-h-24 overflow-y-auto flex flex-wrap gap-1.5 justify-center pb-1">
+                  {zones.map((z) => (
+                    <button
+                      key={z.id}
+                      onClick={() => { selectZone(z.id); setAutoZone(false); }}
+                      className="text-[11px] px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 active:bg-zinc-700 transition"
+                    >
+                      {z.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="px-4 py-3 space-y-2">
               {OPTIONS.map((opt) => (
@@ -288,6 +316,21 @@ export function ReportButton() {
         </div>
       )}
 
+      {/* Pastille du quartier sélectionné (tap pour désélectionner) */}
+      {selectedZone && !open && (
+        <button
+          onClick={() => selectZone(null)}
+          className="fixed z-40 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/95 border border-orange-800/60 text-orange-300 text-xs font-medium rounded-full backdrop-blur active:scale-95 transition"
+          style={{ bottom: "calc(8.5rem + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)" }}
+          aria-label={`Quartier ${selectedZone.name}, toucher pour changer`}
+        >
+          {selectedZone.name}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      )}
+
       {/* FAB */}
       <button
         onClick={handleOpen}
@@ -308,6 +351,11 @@ export function ReportButton() {
           <line x1="12" y1="2" x2="12" y2="12" />
         </svg>
         {success ? "Envoyé !" : "Signaler"}
+        {pending > 0 && !success && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full bg-zinc-800 border border-zinc-600 text-[10px] font-bold text-orange-300 flex items-center justify-center">
+            {pending}
+          </span>
+        )}
       </button>
     </>
   );

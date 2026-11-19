@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // PWA headers — le service worker est géré manuellement (léger, sans next-pwa)
+  // PWA headers : le service worker est géré manuellement (léger, sans next-pwa)
   async headers() {
     return [
       {

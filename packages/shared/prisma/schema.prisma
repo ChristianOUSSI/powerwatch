@@ -1,4 +1,4 @@
-// PowerWatch Cameroun — Prisma Schema
+// PowerWatch Cameroun : Prisma Schema
 // DB: PostgreSQL + PostGIS (ou simple lat/lng si PostGIS non dispo)
 
 generator client {
@@ -48,7 +48,7 @@ model Zone {
 model User {
   id            String   @id @default(cuid())
   deviceId      String   @unique        // fingerprint anonyme côté client
-  phone         String?  @unique        // optionnel — pour comptes vérifiés
+  phone         String?  @unique        // optionnel, pour comptes vérifiés
   phoneVerified Boolean  @default(false)
   trustScore    Float    @default(1.0)  // 0.0 → 2.0, pondère les signalements
   reportCount   Int      @default(0)
@@ -113,7 +113,7 @@ model ZoneSnapshot {
   zoneId          String
   zone            Zone       @relation(fields: [zoneId], references: [id])
   status          ZoneStatus
-  outageScore     Float      // 0–100, agrégation pondérée
+  outageScore     Float      // 0-100, agrégation pondérée
   activeReports   Int        // nb signalements OUTAGE actifs
   restoredReports Int        // nb signalements RESTORED actifs
   // Timestamp de début de la coupure actuelle (null si STABLE)
@@ -138,6 +138,7 @@ model ChargingSpot {
   photoUrl    String?                // lien photo (optionnel)
   verified    Boolean  @default(false)
   upvotes     Int      @default(0)
+  upvotedBy   String[]               // deviceIds ayant déjà voté (anti-fraude)
   createdAt   DateTime @default(now())
 }
 

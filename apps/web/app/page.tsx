@@ -3,6 +3,8 @@ import { ReportButton } from "@/components/report/ReportButton";
 import { ZoneStatusBar } from "@/components/ui/ZoneStatusBar";
 import { AlertBanner } from "@/components/ui/AlertBanner";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { Onboarding } from "@/components/ui/Onboarding";
 
 // Leaflet ne tourne pas côté serveur
 const PowerMap = dynamic(() => import("@/components/map/PowerMap"), {
@@ -39,7 +41,10 @@ export default function HomePage() {
             <span className="text-[10px] text-zinc-500 block leading-none mt-0.5">Cameroun</span>
           </div>
         </div>
-        <ZoneStatusBar />
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <ZoneStatusBar />
+        </div>
       </header>
 
       {/* Carte */}
@@ -52,6 +57,9 @@ export default function HomePage() {
 
       {/* Bouton WhatsApp */}
       <WhatsAppButton />
+
+      {/* Aide premier lancement */}
+      <Onboarding />
     </main>
   );
 }

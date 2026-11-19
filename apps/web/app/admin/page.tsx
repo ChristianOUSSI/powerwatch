@@ -29,7 +29,12 @@ export default function AdminPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-orange-400">⚡ PowerWatch · Admin</h1>
+          <h1 className="text-xl font-bold text-orange-400 flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M13 2L4.09 12.97A1 1 0 005 14.5h6.5L10 22l9.91-10.97A1 1 0 0019 10h-6.5L13 2z"/>
+            </svg>
+            PowerWatch · Admin
+          </h1>
           <p className="text-xs text-zinc-500">Tableau de bord modération</p>
         </div>
         <button

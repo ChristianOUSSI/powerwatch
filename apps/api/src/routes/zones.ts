@@ -13,6 +13,13 @@ zonesRouter.get("/", async (req, res) => {
       snapshots: {
         orderBy: { computedAt: "desc" },
         take: 1,
+        select: {
+          status: true,
+          outageScore: true,
+          activeReports: true,
+          outageSince: true,
+          computedAt: true,
+        },
       },
     },
   });

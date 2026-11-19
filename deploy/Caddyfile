@@ -1,0 +1,11 @@
+# PowerWatch : HTTPS automatique via Caddy (Let's Encrypt)
+# APP_DOMAIN = domaine public de l'app (ex: app.powerwatch.cm)
+# API_DOMAIN = domaine public de l'API (ex: api.powerwatch.cm)
+
+{$APP_DOMAIN} {
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	reverse_proxy api:4000
+}

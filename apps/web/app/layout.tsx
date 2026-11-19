@@ -25,6 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className="dark">
       <head>
+        {/* Applique le thème sauvegardé avant le premier paint (anti-flash) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("pw_theme")==="light")document.documentElement.classList.add("light")}catch(e){}`,
+          }}
+        />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       {/* pb-[calc(4rem+env(safe-area-inset-bottom))] = espace nav + barre système Android */}

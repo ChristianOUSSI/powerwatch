@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useZonesStore } from "@/store/zones";
+import { API_URL } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 const DISMISS_KEY = "pw_push_dismissed";
 
@@ -17,6 +17,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 export function PushOptIn() {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const zones = useZonesStore((s) => s.zones);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function PushOptIn() {
 
   async function enable() {
     setBusy(true);
+    setFailed(false);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -75,6 +77,10 @@ export function PushOptIn() {
       });
 
       setVisible(false);
+    } catch {
+      // API injoignable ou push refusé par le navigateur :
+      // on affiche l'erreur au lieu de laisser la promesse rejeter.
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -95,6 +101,11 @@ export function PushOptIn() {
       <p className="text-xs text-zinc-500 mt-0.5">
         Sois prévenu dès qu'une coupure est signalée dans ta ville.
       </p>
+      {failed && (
+        <p className="text-[11px] text-red-400 mt-2">
+          Activation impossible pour le moment. Réessaie plus tard.
+        </p>
+      )}
       <div className="flex gap-2 mt-3">
         <button
           onClick={enable}

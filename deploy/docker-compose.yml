@@ -1,0 +1,79 @@
+# PowerWatch Cameroun : déploiement Docker Compose
+#
+# 1. cp deploy/.env.example deploy/.env  puis remplir les valeurs
+# 2. docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+#
+# Architecture :
+#   - db   : PostgreSQL 16 (données)
+#   - api  : Express + Socket.io (port interne 4000)
+#   - web  : Next.js (port interne 3000)
+#   - caddy: HTTPS automatique + reverse proxy (ports 80/443 publics)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: powerwatch
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: powerwatch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powerwatch -d powerwatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Pas de ports exposés : la base reste privée au réseau Docker
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://powerwatch:${DB_PASSWORD}@db:5432/powerwatch
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: https://${APP_DOMAIN}
+      PORT: 4000
+      NODE_ENV: production
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: mailto:admin@${APP_DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+    restart: unless-stopped
+    environment:
+      # Conservé pour lisibilité ; la valeur réellement utilisée est celle du build
+      NEXT_PUBLIC_API_URL: https://${API_DOMAIN}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -38,7 +38,8 @@ export function AdminSpotsList() {
     setSpots((prev) => prev.map((s) => (s.id === id ? { ...s, verified: true } : s)));
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, name: string) {
+    if (!window.confirm(`Supprimer « ${name} » ?`)) return;
     const token = getToken();
     if (!token) return;
     await adminFetch(`/api/admin/spots/${id}`, token, { method: "DELETE" });
@@ -47,11 +48,23 @@ export function AdminSpotsList() {
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <p className="text-zinc-500 text-sm">Chargement…</p>;
-  if (!spots.length) return <p className="text-zinc-500 text-sm">Aucun lieu de charge.</p>;
+  if (loading && !spots.length) {
+    return (
+      <div className="space-y-2">
+        {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
+      <button
+        onClick={() => { setLoading(true); load(); }}
+        className="text-xs text-zinc-500 hover:text-zinc-300 transition"
+      >
+        Rafraîchir
+      </button>
+      {!spots.length && <p className="text-zinc-500 text-sm">Aucun lieu de charge.</p>}
       {spots.map((s) => (
         <div key={s.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center gap-3">
           {s.photoUrl ? (
@@ -78,7 +91,7 @@ export function AdminSpotsList() {
               </button>
             )}
             <button
-              onClick={() => remove(s.id)}
+              onClick={() => remove(s.id, s.name)}
               className="text-xs text-red-400 hover:text-red-300 border border-red-800 rounded-lg px-2 py-1 transition"
             >
               Suppr.

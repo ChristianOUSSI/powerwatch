@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { getOrCreateUser } from "../services/user.js";
 import { emitZoneUpdate } from "../socket/index.js";
 import { notifyZoneOutage } from "../services/push.js";
+import { computeZoneScore } from "../lib/zoneScore.js";
 
 export const reportsRouter = Router();
 
@@ -38,20 +39,40 @@ reportsRouter.post("/", async (req, res) => {
       return res.status(403).json({ error: "Compte suspendu temporairement." });
     }
 
-    // Anti-flood : 1 signalement par zone par 15 min
+    // Anti-flood : 1 signalement par zone par utilisateur.
+    // Fenêtre plus courte pour RESTORED : le courant peut revenir vite
+    // après une coupure, il ne faut pas bloquer ce signalement 15 min.
+    const windowMinutes = type === "RESTORED" ? 2 : 15;
     const recent = await prisma.report.findFirst({
       where: {
         userId: user.id,
         zoneId,
-        createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
+        createdAt: { gte: new Date(Date.now() - windowMinutes * 60 * 1000) },
         status: "ACTIVE",
       },
     });
     if (recent) {
-      return res.status(429).json({ error: "Trop de signalements. Attends 15 min." });
+      return res
+        .status(429)
+        .json({ error: `Trop de signalements. Attends ${windowMinutes} min.` });
     }
 
     const expiresAt = new Date(Date.now() + TTL[type] * 60 * 1000);
+
+    // Un RESTORED annule les signalements de coupure encore actifs dans la zone.
+    // On épargne les signalements de moins de 2 min : un "courant rétabli"
+    // ne doit pas annuler une coupure fraîchement signalée par un tiers.
+    if (type === "RESTORED") {
+      await prisma.report.updateMany({
+        where: {
+          zoneId,
+          status: "ACTIVE",
+          type: { in: ["OUTAGE", "MICRO_OUTAGE"] },
+          createdAt: { lt: new Date(Date.now() - 2 * 60 * 1000) },
+        },
+        data: { status: "SUPERSEDED" },
+      });
+    }
 
     const report = await prisma.report.create({
       data: {
@@ -90,24 +111,26 @@ reportsRouter.post("/", async (req, res) => {
         select: { id: true, confirmedBy: true, userId: true },
         take: 10,
       });
-      for (const r of similar) {
-        if (r.confirmedBy.includes(user.id)) continue;
-        await prisma.report.update({
-          where: { id: r.id },
-          data: { confirmedBy: { push: user.id } },
-        });
-        await prisma.user.update({
-          where: { id: r.userId },
-          data: { trustScore: { increment: 0.05 } },
-        });
-      }
+      const trustGains = new Map<string, number>();
+      await Promise.all(
+        similar.map(async (r) => {
+          if (r.confirmedBy.includes(user.id)) return;
+          await prisma.report.update({
+            where: { id: r.id },
+            data: { confirmedBy: { push: user.id } },
+          });
+          trustGains.set(r.userId, (trustGains.get(r.userId) ?? 0) + 0.05);
+        })
+      );
+      await Promise.all(
+        [...trustGains].map(([userId, gain]) =>
+          prisma.user.update({
+            where: { id: userId },
+            data: { trustScore: { increment: gain } },
+          })
+        )
+      );
     }
-
-    // Plafonne le trust score à 2.0 pour tout le monde (nettoyage périodique léger)
-    await prisma.user.updateMany({
-      where: { trustScore: { gt: 2.0 } },
-      data: { trustScore: 2.0 },
-    });
 
     // Déclenche recalcul immédiat du snapshot de zone
     const snapshot = await recalcZone(zoneId);
@@ -130,30 +153,8 @@ export async function recalcZone(zoneId: string) {
     select: { type: true, weight: true, createdAt: true },
   });
 
-  let outageScore = 0;
-  let activeReports = 0;
-  let restoredReports = 0;
-  let oldestOutage: Date | null = null;
-
-  for (const r of reports) {
-    if (r.type === "OUTAGE" || r.type === "MICRO_OUTAGE") {
-      const decay = Math.exp(-(now.getTime() - r.createdAt.getTime()) / (2 * 3600 * 1000));
-      outageScore += r.weight * decay * (r.type === "OUTAGE" ? 1 : 0.5);
-      activeReports++;
-      if (!oldestOutage || r.createdAt < oldestOutage) oldestOutage = r.createdAt;
-    } else if (r.type === "RESTORED") {
-      restoredReports++;
-      outageScore -= r.weight * 0.8;
-    }
-  }
-
-  outageScore = Math.max(0, Math.min(100, outageScore * 10));
-
-  const status =
-    outageScore >= 60 ? "OUTAGE" :
-    outageScore >= 25 ? "UNSTABLE" :
-    activeReports > 0 || restoredReports > 0 ? "STABLE" :
-    "UNKNOWN";
+  const { outageScore, activeReports, restoredReports, oldestOutage, status } =
+    computeZoneScore(reports, now);
 
   // Continuité : si la zone était déjà en difficulté, on conserve le début réel
   // de la coupure au lieu de le recalculer depuis les signalements récents

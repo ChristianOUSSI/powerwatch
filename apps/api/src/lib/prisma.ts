@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-// Singleton — évite les connexions multiples en dev (hot-reload)
+// Singleton : évite les connexions multiples en dev (hot-reload)
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma =
