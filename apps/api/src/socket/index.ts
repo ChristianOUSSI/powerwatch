@@ -18,7 +18,9 @@ const cityIdCache = new Map<string, string>();
 
 export function initSocket(httpServer: HttpServer) {
   io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-    cors: { origin: process.env.FRONTEND_URL ?? "http://localhost:3000" },
+    cors: {
+      origin: [process.env.FRONTEND_URL ?? "http://localhost:3000", /\.vercel\.app$/],
+    },
     // Compression → économie de données mobile
     perMessageDeflate: true,
   });

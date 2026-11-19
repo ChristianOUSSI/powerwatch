@@ -23,7 +23,15 @@ const httpServer = createServer(app);
 app.set("trust proxy", 1); // derrière Nginx : IP réelle pour le rate limiter
 app.use(helmet());
 app.use(compression()); // gzip : économie de données mobiles
-app.use(cors({ origin: process.env.FRONTEND_URL ?? "http://localhost:3000" }));
+// CORS : origine principale (FRONTEND_URL) + previews Vercel (*.vercel.app).
+// Les routes admin restent protégées par JWT quelle que soit l'origine.
+const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+app.use(
+  cors({
+    origin: [frontendUrl, /\.vercel\.app$/],
+    credentials: false,
+  })
+);
 app.use(express.json({ limit: "10kb" })); // petite limite → économie bande passante
 
 // Routes publiques
