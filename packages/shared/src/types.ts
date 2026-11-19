@@ -10,7 +10,9 @@ export interface ZonePublic {
   cityId: string;
   centroidLat: number;
   centroidLng: number;
-  polygon?: GeoJSON.Feature;
+  // Feature GeoJSON sérialisée ; typé unknown pour ne pas dépendre
+  // de @types/geojson côté API (les consumers castent côté web/Leaflet)
+  polygon?: unknown;
   snapshot: ZoneSnapshotPublic | null;
 }
 
