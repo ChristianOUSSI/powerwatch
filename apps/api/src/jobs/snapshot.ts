@@ -32,7 +32,10 @@ export function startSnapshotJob() {
       //   (sinon elles resteraient affichées en coupure indéfiniment)
       const [recentReportZones, latestSnapshots] = await Promise.all([
         prisma.report.findMany({
-          where: { createdAt: { gte: sixHoursAgo } },
+          where: {
+            createdAt: { gte: sixHoursAgo },
+            zoneId: { not: null }, // ignorer les signalements libres (sans zone)
+          },
           select: { zoneId: true },
           distinct: ["zoneId"],
         }),
@@ -49,7 +52,7 @@ export function startSnapshotJob() {
 
       const activeZoneIds = [
         ...new Set([
-          ...recentReportZones.map((r) => r.zoneId),
+          ...recentReportZones.map((r) => r.zoneId!).filter(Boolean), // exclure null
           ...staleZoneIds,
         ]),
       ];
