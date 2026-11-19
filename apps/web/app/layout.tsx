@@ -4,6 +4,7 @@ import { ServiceWorkerRegistrar } from "@/components/ui/ServiceWorkerRegistrar";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { PwaInstallPrompt } from "@/components/ui/PwaInstallPrompt";
 import { PushOptIn } from "@/components/ui/PushOptIn";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 
 export const metadata: Metadata = {
   title: "PowerWatch Cameroun",
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       {/* pb-[calc(4rem+env(safe-area-inset-bottom))] = espace nav + barre système Android */}
       <body className="bg-zinc-950 text-zinc-100 antialiased" style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom, 0px))" }}>
+        <SplashScreen />
         <ServiceWorkerRegistrar />
         <PwaInstallPrompt />
         <PushOptIn />
