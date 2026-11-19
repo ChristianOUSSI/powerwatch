@@ -22,8 +22,10 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // suppressHydrationWarning sur <html> : le script inline peut ajouter
+  // la classe "light" avant l'hydratation (React #418/#425 sinon)
   return (
-    <html lang="fr" className="dark">
+    <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         {/* Applique le thème sauvegardé avant le premier paint (anti-flash) */}
         <script
@@ -31,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `try{if(localStorage.getItem("pw_theme")==="light")document.documentElement.classList.add("light")}catch(e){}`,
           }}
         />
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       {/* pb-[calc(4rem+env(safe-area-inset-bottom))] = espace nav + barre système Android */}
